@@ -1,97 +1,151 @@
 package mockdog
 
-import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import okhttp3.Headers
+import okhttp3.mockwebserver.MockResponse
 import theme.*
 
+private val listWidth       = mutableStateOf(300.dp)
+private val selectedRequest = mutableStateOf<Int?>(null)
 
 @Composable
-@Preview
+fun RequestHistory(requests: SnapshotStateList<Record>) {
+  LazyColumn(M.background(Color.White)) {
+    itemsIndexed(requests) { index, item ->
+      val isSelected = (index == selectedRequest.value)
+      Row(modifier = M
+        .fillParentMaxWidth()
+        .background(when {
+          isSelected     -> BlueLight
+          index % 2 == 1 -> C.surface
+          else           -> C.background
+        })
+        .clickable { selectedRequest.value = index }
+        .padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(
+          modifier = M.width(60.dp),
+          text     = item.request.method.toString(),
+          color    = if (item.response == null) C.error else C.onBackground,
+          style    = T.body2)
+        Text(
+          text  = item.request.path!!,
+          style = T.body2)
+      }
+    }
+  }
+}
+
+@Composable
 fun App(requests: SnapshotStateList<Record>) {
   MaterialTheme(
     colors = ColorPalette,
     typography = TypographyTypes
   ) {
-    Surface(M.fillMaxWidth().padding(16.dp)) {
-      if(requests.isEmpty())
-        Text("Waiting for first request...")
-      else
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        itemsIndexed(requests) { index, item ->
-          val (id, req, collapsedRequest, collapsedResponse, sent) = item
+    val density = LocalDensity.current
+    val dragula = rememberDraggableState { delta ->
+      listWidth.value = listWidth.value + with(density) { delta.toDp() }
+    }
 
-          Column {
+    Surface(M.fillMaxWidth()) {
+
+      Row {
+        // lavy zoznam
+        Column(M.width(listWidth.value).fillMaxHeight().background(Color.White)) {
+        //  Button(onClick = { clearHistory() }) { Text("Clear") }
+          BasicTextField(
+            modifier = M.background(PrimeBlackVariant).padding(16.dp).fillMaxWidth(),
+            textStyle = TextStyle.Default.copy(color = Color.White),
+            value = realServerUrl.value,
+            onValueChange = { realServerUrl.value = it })
+
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(modifier = M.padding(start = 16.dp), style = T.body2, text = "Rucna praca")
+            Checkbox(checked = catchEnabled.value, onCheckedChange = { catchEnabled.value = catchEnabled.value.not() })
+          }
+          RequestHistory(requests)
+        }
+
+        // divider
+        Box(M.width(4.dp)
+          .fillMaxHeight()
+          .background(Color.Black.copy(alpha = 0.2f))
+          .draggable(dragula, Orientation.Horizontal))
+
+        // detail
+        selectedRequest.value?.let { index ->
+          val (id, req, response, collapsedRequest, collapsedResponse) = requests[index]
+
+          Column(M.padding(16.dp).verticalScroll(rememberScrollState())) {
             Text(
+              modifier = M.padding(bottom = 16.dp),
               text  = req.method + " " + req.path!!,
               style = T.subtitle1)
 
-              Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  Icon(
-                    modifier = M
-                      .size(30.dp)
-                      .rotate(collapsedRequest(270f, 0f))
-                      .clickable { item.update(index) { copy(collapsedRequest = !collapsedRequest) } },
-                    imageVector         = Icons.Default.ArrowDropDown,
-                    contentDescription  = "")
-                  Text("Request", style = T.caption)
-                }
-
-                if(collapsedRequest.not()) {
-                  Row(M.padding(vertical = 16.dp)) {
-                    Column {
-                      req.headers.forEach { (key, _) ->
-                        Text("$key  ", fontSize = 12.sp, color = C.onSurface.copy(alpha = 0.6f))
-                      }
-                    }
-                    Column {
-                      req.headers.forEach { (_, value) ->
-                        Text(
-                          text     = value,
-                          modifier = M.horizontalScroll(rememberScrollState()),
-                          fontSize = 12.sp,
-                          maxLines = 1)
-                      }
-                    }
-                  }
-                  Text(
-                    modifier = M.padding(bottom = 16.dp),
-                    fontSize = 14.sp,
-                    text     = req.body.toString())
-                }
+            // request
+            Column(M.background(color = Color.White, shape = SH.medium).fillMaxWidth()) {
+              Row(M.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                  modifier = M
+                    .size(30.dp)
+                    .rotate(collapsedRequest(270f, 0f))
+                    .clickable { updateRecord(index) { copy(collapsedRequest = !collapsedRequest) } },
+                  imageVector         = Icons.Default.ArrowDropDown,
+                  contentDescription  = "")
+                Text("Request", style = T.caption)
               }
 
-            Column {
-              Row(verticalAlignment = Alignment.CenterVertically) {
+              if(collapsedRequest.not()) {
+                HeadersTable(req.headers)
+                Text(
+                  modifier = M.padding(16.dp),
+                  fontSize = 14.sp,
+                  text     = req.body.toString())
+              }
+            }
+
+            Box(M.height(16.dp))
+
+            // response
+            Column(M.background(color = Color.White, shape = SH.medium).fillMaxWidth()) {
+              Row(M.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                   modifier = M
                     .size(30.dp)
                     .rotate(collapsedResponse(270f, 0f))
-                    .clickable { item.update(index) { copy(collapsedResponse = !collapsedResponse) } },
+                    .clickable { updateRecord(index) { copy(collapsedResponse = !collapsedResponse) } },
                   imageVector         = Icons.Default.ArrowDropDown,
                   contentDescription  = "")
                 Text("Response", style = T.caption)
               }
               if(collapsedResponse.not()) {
-                if (sent)
-                  Text("RESPONSE SENT")
+                if (response != null)
+                  Column {
+                    Text(modifier = M.padding(horizontal = 16.dp), text = MockResponse().setResponseCode(response.status).status)
+                    HeadersTable(response.headers)
+                    Text(
+                      modifier = M.padding(16.dp),
+                      fontSize = 14.sp,
+                      text     = response.body)
+                  }
                 else
                   ResponseForm(id)
               }
@@ -104,26 +158,31 @@ fun App(requests: SnapshotStateList<Record>) {
 }
 
 @Composable
+fun HeadersTable(headers: Headers) {
+  Row(M.padding(16.dp)) {
+    Column {
+      headers.forEach { (key, _) ->
+        Text("$key  ", fontSize = 12.sp, color = C.onSurface.copy(alpha = 0.6f))
+      }
+    }
+    Column {
+      headers.forEach { (_, value) ->
+        Text(
+          text     = value,
+          modifier = M.horizontalScroll(rememberScrollState()),
+          fontSize = 12.sp,
+          maxLines = 1)
+      }
+    }
+  }
+}
+
+@Composable
 fun ResponseForm(id: Long) {
-  val codes           = remember { listOf(200, 401, 500) }
-  val (code, setCode) = mutable(200)
+  val codes = remember { listOf(200, 401, 404, 500) }
   val (body, setBody) = mutable(responza)
 
   Column(M.fillMaxWidth()) {
-
-    Row(M.padding(vertical = 16.dp)) {
-      codes.forEach {
-        Text(
-          text     = it.toString(),
-          color    = (it == code)(C.surface, C.primaryVariant),
-          modifier = Modifier
-          .background(
-            color = (it == code)(C.primaryVariant, C.surface),
-            shape = RoundedCornerShape(12.dp))
-          .padding(horizontal = 8.dp, vertical = 4.dp)
-          .clickable { setCode(it) })
-      }
-    }
 
     TextField(
       maxLines      = 15,
@@ -131,8 +190,15 @@ fun ResponseForm(id: Long) {
       value         = body,
       onValueChange = setBody)
 
-    Button(onClick = { sendResponse(id, code, body) }) {
-      Text(modifier = M.padding(horizontal = 32.dp), text = "SEND")
+    Row(M.padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+      codes.forEach { code ->
+        Button(onClick = { sendResponse(id, code, body) }) {
+          Text(modifier = M.padding(horizontal = 16.dp), text = "$code")
+        }
+      }
+      Button(onClick = { sendRealShit(id) }) {
+        Text(modifier = M.padding(horizontal = 16.dp), text = "REAL SHIT")
+      }
     }
   }
 }
@@ -162,7 +228,7 @@ val responza = """
               "description": "Lorem ipsum dolor sit amet",
               "priceVariants": [
                 {
-                  "points": 23,
+                  "point": 23,
                   "price": 300
                 }
               ],
