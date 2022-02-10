@@ -1,130 +1,169 @@
-package common.core
+package ui.json
 
-import com.google.gson.*
-import com.google.gson.stream.*
-import java.io.Reader
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.Button
+import androidx.compose.material.Icon
+import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.google.gson.JsonElement
+import theme.BlueLight
+import theme.IconBlue
+import theme.PrimeBlack
+import theme.Yellow
 
-inline fun json(block: JsonBuilder.() -> Unit): String =
-    StringBuilder().apply { jsonBlock(block, ::append) }.toString()
+//val example = """
+//    {"menu": {
+//      "id": "file",
+//      "value": "File",
+//      "popup": {
+//        "menuitem": [
+//          {"value": "New", "onclick": "CreateNewDoc()"},
+//          {"value": "Open", "onclick": "OpenDoc()"},
+//          {"value": "Close", "onclick": "CloseDoc()"}
+//        ]
+//      }
+//    }}
+//"""
+//
+//
+//@Composable
+//fun JsonView() {
+//    val parsed = JsonParser.parseString(example)
+//    val collapsed = remember { mutableStateListOf<String>() }
+//
+//    JsonTree(parsed, null, "", collapsed)
+//}
 
-fun parseJsonTree(json: Reader): Json =
-  JsonRoot(JsonParser.read(JsonReader(json))!!)
+val keyColor = IconBlue//AppTheme.code.jsonKey.color
+val bracesColor = PrimeBlack//AppTheme.code.jsonPunctuation.color
+val textSize = 12.sp
 
-private object JsonParser: TypeAdapter<Any?>() {
-    override fun write(out: JsonWriter?, value: Any?) {}
-    override fun read(reader: JsonReader): Any? {
-        return when (reader.peek()) {
-            JsonToken.STRING  -> reader.nextString()
-            JsonToken.NUMBER  -> reader.nextString()
-            JsonToken.BOOLEAN -> reader.nextBoolean()
-            JsonToken.NULL    -> { reader.nextNull(); null }
-            JsonToken.BEGIN_ARRAY -> {
-                val array = ArrayList<Any?>()
-                reader.beginArray()
-                while (reader.hasNext()) { array.add(read(reader)) }
-                reader.endArray()
-                array
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotStateList<String>, onKeySelected: (String) -> Unit) {
+    val offset = 15.dp
+    val fullPath = if(key != null) "$path/$key" else path
+
+    when {
+        root.isJsonArray -> {
+            Column(modifier = Modifier.padding(horizontal = offset, vertical = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if(key != null)
+                        Text("$key: ", color = keyColor, fontSize = textSize)
+
+                    Text("[", color = bracesColor, fontSize = textSize)
+
+                    if(root.asJsonArray.isEmpty.not())
+                        Icon(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .rotate(if(fullPath in collapsed) 270f else 0f)
+                                .clickable {
+                                    if(fullPath in collapsed) collapsed.remove(fullPath)
+                                    else                      collapsed.add(fullPath)
+                                },
+                            imageVector         = Icons.Default.ArrowDropDown,
+                            contentDescription  = "Search",
+                            tint                = keyColor)
+
+                    if(fullPath in collapsed) {
+                        Text(if(root.asJsonArray.isEmpty) "]" else "${root} ]",
+                            color = bracesColor,
+                            fontSize = textSize,
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1)
+                    }
+                }
+                if(fullPath !in collapsed) {
+                    root.asJsonArray.forEachIndexed { index, item ->
+                        JsonTree(item, null, "$fullPath[$index]", collapsed, onKeySelected)
+                    }
+                    Text("]", color = bracesColor, fontSize = textSize)
+                }
             }
-            JsonToken.BEGIN_OBJECT -> {
-                val obj = hashMapOf<String, Any?>()
-                reader.beginObject()
-                while (reader.hasNext()) { obj[reader.nextName()] = read(reader) }
-                reader.endObject()
-                obj
-            }
+        }
+        root.isJsonObject -> {
+            Column(modifier = Modifier.padding(horizontal = offset, vertical = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if(key != null) Text(
+                        modifier = Modifier.clickable { onKeySelected("$fullPath") },
+                        text     = "$key: ",
+                        fontSize = textSize,
+                        color    = keyColor)
 
-            JsonToken.END_DOCUMENT,
-            JsonToken.NAME,
-            JsonToken.END_OBJECT,
-            JsonToken.END_ARRAY, null -> throw IllegalArgumentException()
+                    Text("{", color = bracesColor, fontSize = textSize)
+
+                    if(root.asJsonObject.size() != 0)
+                        Icon(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .rotate(if(fullPath in collapsed) 270f else 0f)
+                                .combinedClickable(
+                                    onClick     = {
+                                        if(fullPath in collapsed) collapsed.remove(fullPath)
+                                        else                      collapsed.add(fullPath)
+                                    },
+                                    onLongClick = {
+                                        val children = root.asJsonObject.entrySet().map { (key, _) -> "$fullPath/$key" }
+                                        collapsed.addAll(children)
+                                    }),
+                            imageVector         = Icons.Default.ArrowDropDown,
+                            contentDescription  = "Search",
+                            tint                = keyColor)
+
+                    if(fullPath in collapsed) {
+                        Text(
+                            text = if(root.asJsonObject.size() == 0) "}" else "$root }",
+                            fontSize = textSize,
+                            color = bracesColor,
+                            overflow = TextOverflow.Ellipsis,
+                        maxLines = 1)
+                    }
+                }
+                if(fullPath !in collapsed) {
+                    root.asJsonObject.entrySet().forEach { (key, value) ->
+                        JsonTree(value, key, fullPath, collapsed, onKeySelected)
+                    }
+                    Text("}", color = bracesColor, fontSize = textSize)
+                }
+            }
+        }
+        else -> {
+            Row(modifier = Modifier.padding(horizontal = offset)) {
+                Text(
+                    text     = "$key: ",
+                    fontSize = textSize,
+                    color    = keyColor)
+                Text(
+                    text         = "$root",
+                   // onValueChange = {},
+                    fontSize = textSize,
+                    color = PrimeBlack
+                )
+            }
         }
     }
 }
 
-class JsonMismatch(message: String): RuntimeException(message)
-
-sealed interface Json
-private class JsonRoot(val element: Any): Json
-private class JsonNest(val element: Any?, val parent: Json, val index: Int): Json
-private class JsonPath(val parent: Json, val key: String): Json
-
-operator fun Json.get(key: String): Json = JsonPath(this, key)
-
-val Json.string : String     get() = nullString ?: fail()
-val Json.int    : Int        get() = nullInt    ?: fail()
-val Json.long   : Long       get() = nullLong   ?: fail()
-val Json.bool   : Boolean    get() = nullBool   ?: fail()
-val Json.double : Double     get() = nullDouble ?: fail()
-val Json.list   : List<Json> get() = nullList   ?: fail()
-
-val Json.nullString : String?     get() = parse { it as String? }
-val Json.nullDouble : Double?     get() = parse { (it as String?)?.toDouble() }
-val Json.nullInt    : Int?        get() = parse { (it as String?)?.toInt() }
-val Json.nullBool   : Boolean?    get() = parse { it as Boolean? }
-val Json.nullLong   : Long?       get() = parse { (it as String?)?.toLong() }
-val Json.nullList   : List<Json>? get() = parse { it as List<Any?> }?.mapIndexed { i, v -> JsonNest(v, this, i) }
-
-val Json.exists: Boolean get() = element != null
-fun <A> Json.ifExists(action: (Json) -> A): A? = takeIf { exists }?.let(action)
-
-val Json.nonEmptyList: List<Json> get() =
-    nullList?.takeIf(List<Json>::isNotEmpty) ?: throw JsonMismatch("Failed to parse key '${path()}', list should not be empty }")
-
-private inline fun <R> Json.parse(parse: (Any?) -> R): R? =
-    try { parse(element) } catch(e: Exception) { null }
-
-private fun Json.fail(): Nothing =
-    throw JsonMismatch("Failed to parse key '${path()}', " + "actual value: ${element ?: "element not found"}")
-
-private val Json.element: Any? get() = when(this) {
-    is JsonPath -> (parent.element as? Map<*, *>)?.get(key)
-    is JsonNest -> element
-    is JsonRoot -> element
-}
-
-private tailrec fun Json.path(keys: List<String> = emptyList()): String = when(this) {
-    is JsonPath -> parent.path(listOf(key) + keys)
-    is JsonNest -> parent.path(listOf("[${index}]") + keys)
-    is JsonRoot -> keys.joinToString("/")
-}
-
-
-// JSON Builder
-
-class JsonBuilder(private val emit: (String) -> Unit) {
-    private var first = true
-
-    operator fun String.rangeTo(v: String?)  = append(if(v != null) "\"$v\"" else "null")
-    operator fun String.rangeTo(v: Number?)  = append(v)
-    operator fun String.rangeTo(v: Boolean?) = append(v)
-    operator fun String.rangeTo(block: JsonBuilder.() -> Unit) { key(); jsonBlock(block, emit) }
-    operator fun String.rangeTo(block: List<Any?>)             { key(); items(block) }
-
-    fun json(block: JsonBuilder.() -> Unit): () -> Unit = { jsonBlock(block, emit) }
-
-    private fun String.key() =
-        emit(if (first.apply { first = false }) "\"$this\":" else ",\"$this\":")
-
-    private fun String.append(value: Any?) =
-        emit(if (first.apply { first = false }) "\"$this\":$value" else ",\"$this\":$value")
-
-    private fun items(block: List<Any?>) {
-        emit("[")
-        block.forEachIndexed { i, v ->
-            if(i != 0) emit(",")
-            when (v) {
-                is List<*>     -> items(v)
-                is Function<*> -> (v as () -> Unit).invoke()
-                is String      -> emit("\"${v}\"")
-                else           -> emit(v.toString())
-            }
-        }
-        emit("]")
-    }
-}
-
-inline fun jsonBlock(block: JsonBuilder.() -> Unit, noinline emit: (String) -> Unit) {
-    emit("{")
-    JsonBuilder(emit).run(block)
-    emit("}")
-}

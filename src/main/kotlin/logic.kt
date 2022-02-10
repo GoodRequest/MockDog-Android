@@ -13,6 +13,8 @@ import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+import okio.buffer
+import okio.gzip
 import java.nio.charset.Charset
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
@@ -27,6 +29,7 @@ data class Record(
   val collapsedResponse : Boolean = false)
 
 data class SentResponse(
+  val url     : String,
   val status  : Int,
   val headers : Headers,
   val body    : String)
@@ -36,7 +39,8 @@ private val client = OkHttpClient.Builder()
   .build()
 
 //val realServerUrl = mutableStateOf("https://kia-mobile-dev.goodrequest.dev".toHttpUrlOrNull()!!)
-val realServerUrl = mutableStateOf("https://mobileapp.kia.sk/api/v1/")
+//val realServerUrl = mutableStateOf("https://mobileapp.kia.sk/api/v1/")
+val realServerUrl = mutableStateOf("https://fitshaker-test.goodrequest.dev/")
 val catchEnabled = mutableStateOf(true)
 
 // Zoznam vsetkych prijatych requestov ktore prisli na server zoradeny podla dorucenia
@@ -82,16 +86,15 @@ private val server = MockWebServer().apply {
 }
 
 private fun sendRealRequest(request: RecordedRequest): SentResponse {
+  val url = (realServerUrl.value.dropLastWhile { it == '/' } + request.requestUrl!!.encodedPath).toHttpUrlOrNull()!!
   val realResponse = runCatching {
     client.newCall(request(
-      url = (realServerUrl.value.dropLast(1) + request.requestUrl!!.encodedPath).toHttpUrlOrNull()!!,
-      headers = Headers.Builder().apply {
-        request.headers.filter { it.first != "Host" }.forEach { add(it.first, it.second) }
-      }.build(),
-      config = {
+      url     = url,
+      headers = Headers.Builder().apply { request.headers.filter { it.first != "Host" }.forEach { add(it.first, it.second) } }.build(),
+      config  = {
         when(request.method.apply { println(this) }) {
           "GET" -> get()
-          else -> post(request.body.readString(Charset.defaultCharset()).toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()).apply { println("body: $this") })
+          else  -> post(request.body.readString(Charset.defaultCharset()).toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()).apply { println("body: $this") })
         }
       }
     )).execute()
@@ -99,13 +102,16 @@ private fun sendRealRequest(request: RecordedRequest): SentResponse {
 
   return realResponse.fold(
     onSuccess = {
+
       SentResponse(
+        url     = url.toString(),
         status  = it.code,
-        headers = it.headers,
-        body    = it.body!!.string())
+        headers = Headers.Builder().apply { it.headers.filter { it.first != "content-encoding" }.forEach { add(it.first, it.second) } }.build(),
+        body    = it.body!!.source().run { if(it.headers["content-encoding"]?.contains("gzip") == true) gzip() else this }.buffer().readUtf8())
     },
     onFailure = {
       SentResponse(
+        url     = url.toString(),
         status  = -1,
         headers = Headers.headersOf(),
         body    = it.stackTraceToString())
@@ -117,11 +123,12 @@ private fun request(url: HttpUrl, headers: Headers, config: Request.Builder.() -
 
 fun sendResponse(id: Long, code: Int, body: String) {
   responses[id]!!.put(
-    SentResponse(status = code, body = body, headers = Headers.headersOf()))
+    SentResponse(url = "mock response", status = code, body = body, headers = Headers.headersOf()))
 }
 
 fun sendRealShit(id: Long) {
-  responses[id]!!.put(SentResponse(status = 666, body = "", headers = Headers.headersOf()))
+  val url = realServerUrl.value.dropLastWhile { it == '/' }
+  responses[id]!!.put(SentResponse(url = url, status = 666, body = "", headers = Headers.headersOf()))
 }
 
 fun updateRecord(index: Int, change: Record.() -> Record) {

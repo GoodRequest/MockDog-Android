@@ -11,6 +11,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.outlined.Send
+import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.sharp.Send
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -20,19 +26,21 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.gson.JsonParser
 import okhttp3.Headers
 import okhttp3.mockwebserver.MockResponse
 import theme.*
+import ui.json.JsonTree
 
 private val listWidth       = mutableStateOf(300.dp)
 private val selectedRequest = mutableStateOf<Int?>(null)
 
 @Composable
 fun RequestHistory(requests: SnapshotStateList<Record>) {
-  LazyColumn(M.background(Color.White)) {
+  LazyColumn(M.background(Color.White), reverseLayout = true) {
     itemsIndexed(requests) { index, item ->
       val isSelected = (index == selectedRequest.value)
-      Row(modifier = M
+      Row(verticalAlignment = Alignment.CenterVertically, modifier = M
         .fillParentMaxWidth()
         .background(when {
           isSelected     -> BlueLight
@@ -41,10 +49,23 @@ fun RequestHistory(requests: SnapshotStateList<Record>) {
         })
         .clickable { selectedRequest.value = index }
         .padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(M.width(40.dp)) {
+          if (item.response == null)
+            Icon(
+              modifier = M.size(22.dp).clickable { sendRealShit(item.threadId) },
+              imageVector         = Icons.Rounded.Send,
+              tint                = C.onBackground,
+              contentDescription  = "")
+          else
+            Text(
+              text     = item.response?.status.toString(),
+              color    = C.onBackground,
+              style    = T.body2)
+        }
         Text(
-          modifier = M.width(60.dp),
+          modifier = M.width(50.dp),
           text     = item.request.method.toString(),
-          color    = if (item.response == null) C.error else C.onBackground,
+          color    = C.onBackground,
           style    = T.body2)
         Text(
           text  = item.request.path!!,
@@ -78,7 +99,7 @@ fun App(requests: SnapshotStateList<Record>) {
             onValueChange = { realServerUrl.value = it })
 
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(modifier = M.padding(start = 16.dp), style = T.body2, text = "Rucna praca")
+            Text(modifier = M.padding(start = 16.dp), style = T.body2, text = "Mock responses")
             Checkbox(checked = catchEnabled.value, onCheckedChange = { catchEnabled.value = catchEnabled.value.not() })
           }
           RequestHistory(requests)
@@ -140,11 +161,27 @@ fun App(requests: SnapshotStateList<Record>) {
                 if (response != null)
                   Column {
                     Text(modifier = M.padding(horizontal = 16.dp), text = MockResponse().setResponseCode(response.status).status)
+                    Text(modifier = M.padding(horizontal = 16.dp, vertical = 4.dp), text = response.url, style = T.body2, color = C.onSurface.copy(alpha = 0.6f))
                     HeadersTable(response.headers)
-                    Text(
-                      modifier = M.padding(16.dp),
-                      fontSize = 14.sp,
-                      text     = response.body)
+
+                    val (isFormatted, setFormatted) = remember { mutableStateOf(false) }
+
+                    Row(M.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                      Text("Format JSON", fontSize = 12.sp, color = C.onSurface.copy(alpha = 0.6f))
+                      Checkbox(checked = isFormatted, onCheckedChange = setFormatted)
+                    }
+
+                    if(isFormatted) {
+                      val parsed = JsonParser.parseString(response.body)
+                      val collapsed = remember { mutableStateListOf<String>() }
+                      JsonTree(parsed, null, "", collapsed, {})
+                    } else {
+                      Text(
+                        modifier = M.padding(16.dp),
+                        fontSize = 14.sp,
+                        text     = response.body)
+                    }
+
                   }
                 else
                   ResponseForm(id)
