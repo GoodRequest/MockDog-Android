@@ -44,7 +44,7 @@ val realServerUrl = mutableStateOf("https://fitshaker-test.goodrequest.dev/")
 val catchEnabled = mutableStateOf(true)
 
 // Zoznam vsetkych prijatych requestov ktore prisli na server zoradeny podla dorucenia
-private val requests = mutableStateListOf<Record>()
+val requests = mutableStateListOf<Record>()
 
 // Kazdy prichadzajuci request sa procesuje na vlastnom samostatnom vlakne (toto handluje na pozadi okhttp).
 // Toto vlakno caka (je blokovane) kym user na UI nezada data pre response.
@@ -52,7 +52,7 @@ private val requests = mutableStateListOf<Record>()
 // je robene cez BlockingQueue. Tie sa tu drzia v mape kde kluc je ID vlakna ktore procesuje ten prislusny request
 private val responses = ConcurrentHashMap<Long, BlockingQueue<SentResponse>>()
 
-private val server = MockWebServer().apply {
+val server = MockWebServer().apply {
   // Dispatcher je riadne nestastny nazov. Je to len "Handler" ktory spracovava jeden request a synchronne vrati prislusny response
   dispatcher = object : Dispatcher() {
     override fun dispatch(request: RecordedRequest): MockResponse {
@@ -139,18 +139,4 @@ fun clearHistory() {
   requests.clear() // TODO zrusit neodoslane vlakna
   client.dispatcher.cancelAll()
   responses.clear()
-}
-
-fun main() = application {
-  try {
-    server.start(port = 52242)
-  } catch (e: Throwable) {
-    e.printStackTrace()
-  }
-
-  Window(
-    title = "MockDog",
-    onCloseRequest = ::exitApplication) {
-    App(requests)
-  }
 }
