@@ -15,6 +15,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import okio.buffer
 import okio.gzip
+import java.io.File
 import java.nio.charset.Charset
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
@@ -139,4 +140,13 @@ fun clearHistory() {
   requests.clear() // TODO zrusit neodoslane vlakna
   client.dispatcher.cancelAll()
   responses.clear()
+}
+
+fun saveFile(name: String, body: String) {
+  val file = File(".\\mocky\\$name.txt") // todo ukladanie na macu \/ ?
+  file.writeText(body)
+}
+
+fun readFile(name: String): String {
+  return File(".\\mocky\\$name.txt").readText()
 }

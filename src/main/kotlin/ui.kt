@@ -18,8 +18,10 @@ import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.sharp.Send
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -34,6 +36,7 @@ import ui.json.JsonTree
 
 private val listWidth       = mutableStateOf(300.dp)
 private val selectedRequest = mutableStateOf<Int?>(null)
+val namesList               = mutableStateOf(emptyList<String>())
 
 @Composable
 fun RequestHistory(requests: SnapshotStateList<Record>) {
@@ -184,7 +187,7 @@ fun App(requests: SnapshotStateList<Record>) {
 
                   }
                 else
-                  ResponseForm(id)
+                  ResponseForm(id, req.path!!)
               }
             }
           }
@@ -215,77 +218,123 @@ fun HeadersTable(headers: Headers) {
 }
 
 @Composable
-fun ResponseForm(id: Long) {
-  val codes = remember { listOf(200, 401, 404, 500) }
-  val (body, setBody) = mutable(responza)
+fun ResponseForm(id: Long, path: String) {
+  val codes                 = remember { listOf(200, 401, 404, 500) }
+  val (body, setBody)       = mutable("")
+  val (name, setName)       = mutable("")
+  val (nameErr, setNameErr) = mutable(false)
+  val (bodyErr, setBodyErr) = mutable(false)
 
-  Column(M.fillMaxWidth()) {
+  Column(M.fillMaxWidth().padding(horizontal = 16.dp)) {
 
-    TextField(
-      maxLines      = 15,
-      textStyle     = LocalTextStyle.current.copy(fontSize = 14.sp),
-      value         = body,
-      onValueChange = setBody)
+    Column {
+      OutlinedTextField(
+        maxLines      = 15,
+        label         = { Text("Json mock") },
+        textStyle     = LocalTextStyle.current.copy(fontSize = 14.sp),
+        colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
+        isError       = bodyErr,
+        value         = body,
+        onValueChange = { setBody(it); setBodyErr(false) })
 
-    Row(M.padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+      if (bodyErr) { ErrorText("Zadaj json") }
+    }
+
+    // ukladanie  fake jsonu do suboru
+    Row(
+      modifier = M.padding(vertical = 16.dp),
+      horizontalArrangement = Arrangement.spacedBy(16.dp),
+      verticalAlignment     = Alignment.Top
+    ) {
+      Column() {
+        OutlinedTextField(
+          maxLines      = 1,
+          label         = { Text("Name of response") },
+          colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
+          isError       = nameErr,
+          value         = name,
+          onValueChange = { setName(it); setNameErr(false) })
+
+        if(nameErr) { ErrorText("Zadaj názov súboru") }
+      }
+
+      Button(
+        onClick = {
+          when {
+            name.isEmpty() || body.isEmpty() -> {
+              if (name.isEmpty()) setNameErr(true)
+              if (body.isEmpty()) setBodyErr(true)
+            }
+            else -> {
+              val pathName = path.substringBefore("?").replace("/", "_") + "_" + name
+              saveFile(pathName, body)
+              namesList.value = namesList.value + pathName
+              setName("")
+              setBody("")
+            }
+          }
+        },
+        modifier = M.padding(top = 10.dp)
+      ) {
+          Text(modifier = M.padding(horizontal = 16.dp), text = "SAVE")
+        }
+    }
+
+    DogTitleText("Json mocks")
+
+    // pomocny val kde mam ulozeny string requestu ale len cast pred query,
+    // tento val nasledne pouzivame na porovnanie(vo filtri) s nazvami suborov ulozenych v namesList
+    val requestPath = path.substringBefore("?").replace("/", "_").replace("?", "_")
+
+    // zobrazenie prislunych file-ov ku danemu requestu v podobe tlacidiel s nazvom daneho file-u
+    Row(M.padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+      namesList.value.filter {
+        it.substringBeforeLast("_") == requestPath
+      }.forEach { name ->
+        Button(onClick = {
+          setBody(readFile(name))
+        }) {
+          Text(modifier = M.padding(horizontal = 16.dp), text = name.substringAfterLast("_"))
+        }
+      }
+    }
+
+    Divider(
+      modifier  = M.fillMaxWidth(),
+      color     = MaterialTheme.colors.primary,
+      thickness = 1.dp)
+
+    DogTitleText("Response codes")
+
+    Row(M.padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
       codes.forEach { code ->
-        Button(onClick = { sendResponse(id, code, body) }) {
+        Button(onClick  = { sendResponse(id, code, body) }) {
           Text(modifier = M.padding(horizontal = 16.dp), text = "$code")
         }
       }
-      Button(onClick = { sendRealShit(id) }) {
+      Button(onClick  = { sendRealShit(id) }) {
         Text(modifier = M.padding(horizontal = 16.dp), text = "REAL SHIT")
       }
     }
   }
 }
 
+@Composable
+fun DogTitleText(text: String) {
+  Text(
+    modifier = M.padding(top = 16.dp),
+    text     = text,
+    style    = T.caption)
+}
+
+@Composable
+fun ErrorText(text: String) {
+  Text(
+    text     = text,
+    color    = C.error,
+    style    = T.caption,
+    modifier = M.padding(start = 16.dp, top = 4.dp))
+}
+
 @Composable fun <A> mutable(init: A) = remember { mutableStateOf(init) }
 operator fun <A> Boolean.invoke(ifTrue: A, ifFalse: A) = if(this) ifTrue else ifFalse
-
-val responza = """
-    {
-      "data": {
-        "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
-        "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4iLCJpYXQiOjE1MTYyMzkwMjJ9.A6Ak1IC1KhtSzAor4-i-bZhmCHQya-sRlPy9-DGgQwA",
-        "profile": {
-          "firstName": "string",
-          "lastName": "string",
-          "email": "user@example.com",
-          "phone": "string",
-          "yearOfBirth": "stri",
-          "addressCity": "string",
-          "points": 0,
-          "cardID": "stringstringstri",
-          "isAccountConfirmed": true,
-          "recommendedProducts": [
-            {
-              "id": 1,
-              "name": "Batoh Husky",
-              "description": "Lorem ipsum dolor sit amet",
-              "priceVariants": [
-                {
-                  "point": 23,
-                  "price": 300
-                }
-              ],
-              "gallery": [
-                {
-                  "url": "https://cdn.com/image1.png"
-                }
-              ],
-              "category": {
-                "name": "Šport"
-              }
-            }
-          ]
-        }
-      },
-      "messages": [
-        {
-          "type": "ERROR",
-          "message": "string"
-        }
-      ]
-    }
-""".trimIndent()
