@@ -2,8 +2,6 @@ package mockdog
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.application
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -20,6 +18,7 @@ import java.nio.charset.Charset
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 // "data" tu je iba kvoli copy metode. HashCode nefunguje dobre, bacha na to, nepouzivat!
 data class Record(
@@ -27,7 +26,8 @@ data class Record(
   val request           : RecordedRequest,
   val response          : SentResponse? = null,
   val collapsedRequest  : Boolean = true,
-  val collapsedResponse : Boolean = false)
+  val collapsedResponse : Boolean = false,
+  val wasReal           : Boolean = false)
 
 data class SentResponse(
   val url     : String,
@@ -41,7 +41,8 @@ private val client = OkHttpClient.Builder()
 
 //val realServerUrl = mutableStateOf("https://kia-mobile-dev.goodrequest.dev".toHttpUrlOrNull()!!)
 //val realServerUrl = mutableStateOf("https://mobileapp.kia.sk/api/v1/")
-val realServerUrl = mutableStateOf("https://fitshaker-test.goodrequest.dev/")
+//val realServerUrl = mutableStateOf("https://fitshaker-test.goodrequest.dev/")
+val realServerUrl = mutableStateOf("https://benzinol-dev.goodrequest.dev/")
 val catchEnabled = mutableStateOf(true)
 
 // Zoznam vsetkych prijatych requestov ktore prisli na server zoradeny podla dorucenia
@@ -59,7 +60,7 @@ val server = MockWebServer().apply {
     override fun dispatch(request: RecordedRequest): MockResponse {
       // vytvori sa zaznam o prijatom requeste aj s informaciou ze sa procesuje na tomto vlakne
       val threadId = Thread.currentThread().id
-      val record   = Record(threadId, request)
+      val record   = Record(threadId = threadId, request = request, wasReal = catchEnabled.value.not())
       requests.add(record)
 
       // Aby som zaznam vedel updatnut musim ho vediet neskor indetifikovat, tak beriem jeho index
@@ -80,7 +81,10 @@ val server = MockWebServer().apply {
       }.also { respo ->
         updateRecord(index) { copy(response = respo) }
       }.let {
-        MockResponse().setResponseCode(it.status).setHeaders(it.headers).setBody(it.body)
+        MockResponse()
+          //.setBodyDelay(timeInMilis.value ?: 0, TimeUnit.MILLISECONDS)
+          .throttleBody(bytesPerPeriod.value ?: 0,timeInMilis.value ?: 0, TimeUnit.MILLISECONDS)
+          .setResponseCode(it.status).setHeaders(it.headers).setBody(it.body)
       }
     }
   }
