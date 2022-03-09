@@ -81,10 +81,16 @@ val server = MockWebServer().apply {
       }.also { respo ->
         updateRecord(index) { copy(response = respo) }
       }.let {
-        MockResponse()
-          //.setBodyDelay(timeInMilis.value ?: 0, TimeUnit.MILLISECONDS)
-          .throttleBody(bytesPerPeriod.value ?: 0,timeInMilis.value ?: 0, TimeUnit.MILLISECONDS)
-          .setResponseCode(it.status).setHeaders(it.headers).setBody(it.body)
+        if (bytesPerPeriod.value > 0 && timeInMilis.value > 0) {
+          MockResponse()
+            //.setBodyDelay(timeInMilis.value ?: 0, TimeUnit.MILLISECONDS)
+            .throttleBody(bytesPerPeriod.value, timeInMilis.value, TimeUnit.MILLISECONDS)
+            .setResponseCode(it.status).setHeaders(it.headers).setBody(it.body)
+        } else {
+          MockResponse()
+            //.setBodyDelay(timeInMilis.value, TimeUnit.MILLISECONDS)
+            .setResponseCode(it.status).setHeaders(it.headers).setBody(it.body)
+        }
       }
     }
   }

@@ -31,8 +31,8 @@ import ui.json.JsonTree
 private val listWidth       = mutableStateOf(300.dp)
 private val selectedRequest = mutableStateOf<Int?>(null)
 val namesList               = mutableStateOf(emptyList<String>())
-val timeInMilis             = mutableStateOf<Long?>(null)
-val bytesPerPeriod          = mutableStateOf<Long?>(null)
+val timeInMilis             = mutableStateOf<Long>(0)
+val bytesPerPeriod          = mutableStateOf<Long>(0)
 
 @Composable
 fun RequestHistory(requests: SnapshotStateList<Record>) {
@@ -384,18 +384,18 @@ fun DelayRequestSimulation(modifier: Modifier) {
 
 @Composable
 fun ThrottleItem(modifier: Modifier) {
-  val (bytes, setBytes)   = mutable<Float?>(null)
-  val (period, setPeriod) = mutable<Float?>(null)
-  val data = bytes?.toLong()
-  val time = period?.toLong()
+  val (bytes, setBytes)   = mutable(0f)
+  val (period, setPeriod) = mutable(0f)
+  val data = bytes.toLong()
+  val time = period.toLong()
 
-  data?.let { bytesPerPeriod.value = it }
-  time?.let { timeInMilis.value = it }
+  bytesPerPeriod.value = data
+  timeInMilis.value    = time
 
-  DogBodyText(modifier, "Bytes per period: ${if (data == null) "0 bytes" else "$data bytes"}")
+  DogBodyText(modifier, "Bytes per period: ${if (data == 0L) "0 bytes" else "$data bytes"}")
   DogSlider(modifier, bytes, setBytes)
 
-  DogBodyText(modifier, "Throttle request(period): ${if (time == null) "0 milis" else "$time milis"}")
+  DogBodyText(modifier, "Sleep after bytes: ${if (time == null) "0 milis" else "$time milis"}")
   DogSlider(modifier, period, setPeriod)
 }
 
