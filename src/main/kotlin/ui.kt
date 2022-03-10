@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -138,10 +139,12 @@ fun App(requests: SnapshotStateList<Record>) {
 
               if(collapsedRequest.not()) {
                 HeadersTable(req.headers)
-                Text(
-                  modifier = M.padding(16.dp),
-                  fontSize = 14.sp,
-                  text     = req.body.toString())
+                SelectionContainer {
+                  Text(
+                    modifier = M.padding(16.dp),
+                    fontSize = 14.sp,
+                    text     = req.body.toString())
+                }
               }
             }
 
@@ -178,10 +181,12 @@ fun App(requests: SnapshotStateList<Record>) {
                       val collapsed = remember { mutableStateListOf<String>() }
                       JsonTree(parsed, null, "", collapsed, {})
                     } else {
-                      Text(
-                        modifier = M.padding(16.dp),
-                        fontSize = 14.sp,
-                        text     = response.body)
+                      SelectionContainer {
+                        Text(
+                          modifier = M.padding(16.dp),
+                          fontSize = 14.sp,
+                          text     = response.body)
+                      }
                     }
 
                     if (wasReal) {
