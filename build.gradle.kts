@@ -31,6 +31,13 @@ compose.desktop {
     application {
         mainClass = "MainKt"
         nativeDistributions {
+            macOS {
+                bundleID = "com.example-company.example-app"
+                signing {
+                    sign.set(false)
+                    identity.set("John Doe")
+                }
+            }
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Exe)
             packageName = "CatInTheMiddle"
             packageVersion = "1.0.0"
