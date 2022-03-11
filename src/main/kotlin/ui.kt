@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
@@ -37,7 +38,14 @@ val bytesPerPeriod          = mutableStateOf<Long>(0)
 
 @Composable
 fun RequestHistory(requests: SnapshotStateList<Record>) {
-  LazyColumn(M.background(Color.White), reverseLayout = true) {
+  val lazyListState = rememberLazyListState()
+
+  LaunchedEffect(requests.lastOrNull()) {
+    println(requests.size)
+    lazyListState.animateScrollToItem(requests.indices.last)
+  }
+
+  LazyColumn(M.background(Color.White), reverseLayout = true, state = lazyListState) {
     itemsIndexed(requests) { index, item ->
       val isSelected = (index == selectedRequest.value)
       Row(verticalAlignment = Alignment.CenterVertically, modifier = M
@@ -116,7 +124,7 @@ fun App(requests: SnapshotStateList<Record>) {
 
         // detail
         selectedRequest.value?.let { index ->
-          val (id, req, response, collapsedRequest, collapsedResponse, wasReal) = requests[index]
+          val (id, req, response, collapsedRequest, collapsedResponse, wasReal, reqBody) = requests[index]
 
           Column(M.padding(16.dp).verticalScroll(rememberScrollState())) {
             Text(
@@ -139,11 +147,13 @@ fun App(requests: SnapshotStateList<Record>) {
 
               if(collapsedRequest.not()) {
                 HeadersTable(req.headers)
-                SelectionContainer {
-                  Text(
-                    modifier = M.padding(16.dp),
-                    fontSize = 14.sp,
-                    text     = req.body.toString())
+                if (reqBody.isNotBlank()) {
+                  SelectionContainer {
+                    Text(
+                      modifier = M.padding(16.dp),
+                      fontSize = 14.sp,
+                      text     = reqBody)
+                  }
                 }
               }
             }

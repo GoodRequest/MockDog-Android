@@ -27,7 +27,8 @@ data class Record(
   val response          : SentResponse? = null,
   val collapsedRequest  : Boolean = true,
   val collapsedResponse : Boolean = false,
-  val wasReal           : Boolean = false)
+  val wasReal           : Boolean = false,
+  val reqBody           : String)
 
 data class SentResponse(
   val url     : String,
@@ -60,7 +61,7 @@ val server = MockWebServer().apply {
     override fun dispatch(request: RecordedRequest): MockResponse {
       // vytvori sa zaznam o prijatom requeste aj s informaciou ze sa procesuje na tomto vlakne
       val threadId = Thread.currentThread().id
-      val record   = Record(threadId = threadId, request = request, wasReal = catchEnabled.value.not())
+      val record   = Record(threadId = threadId, request = request, wasReal = catchEnabled.value.not(), reqBody = request.body.readUtf8())
       requests.add(record)
 
       // Aby som zaznam vedel updatnut musim ho vediet neskor indetifikovat, tak beriem jeho index
@@ -74,10 +75,10 @@ val server = MockWebServer().apply {
         if(response.status != 666) {
           response
         } else {
-          sendRealRequest(request)
+          sendRealRequest(record)
         }
       } else {
-        sendRealRequest(request)
+        sendRealRequest(record)
       }.also { respo ->
         updateRecord(index) { copy(response = respo) }
       }.let {
@@ -96,16 +97,16 @@ val server = MockWebServer().apply {
   }
 }
 
-private fun sendRealRequest(request: RecordedRequest): SentResponse {
-  val url = (realServerUrl.value.dropLastWhile { it == '/' } + request.requestUrl!!.encodedPath).toHttpUrlOrNull()!!
+private fun sendRealRequest(record: Record): SentResponse {
+  val url = (realServerUrl.value.dropLastWhile { it == '/' } + record.request.requestUrl!!.encodedPath).toHttpUrlOrNull()!!
   val realResponse = runCatching {
     client.newCall(request(
       url     = url,
-      headers = Headers.Builder().apply { request.headers.filter { it.first != "Host" }.forEach { add(it.first, it.second) } }.build(),
+      headers = Headers.Builder().apply { record.request.headers.filter { it.first != "Host" }.forEach { add(it.first, it.second) } }.build(),
       config  = {
-        when(request.method.apply { println(this) }) {
+        when(record.request.method.apply { println(this) }) {
           "GET" -> get()
-          else  -> post(request.body.readString(Charset.defaultCharset()).toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()).apply { println("body: $this") })
+          else  -> post(record.reqBody.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()).apply { println("body: $this") })
         }
       }
     )).execute()
