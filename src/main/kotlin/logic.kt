@@ -104,9 +104,13 @@ private fun sendRealRequest(record: Record): SentResponse {
       url     = url,
       headers = Headers.Builder().apply { record.request.headers.filter { it.first != "Host" }.forEach { add(it.first, it.second) } }.build(),
       config  = {
+        val reqBody = record.reqBody.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()).apply { println("body: $this") }
+
         when(record.request.method.apply { println(this) }) {
-          "GET" -> get()
-          else  -> post(record.reqBody.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()).apply { println("body: $this") })
+          "GET"   -> get()
+          "PUT"   -> put(reqBody)
+          "PATCH" -> patch(reqBody)
+          else    -> post(reqBody)
         }
       }
     )).execute()
