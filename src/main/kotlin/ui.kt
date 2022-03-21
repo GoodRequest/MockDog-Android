@@ -25,13 +25,18 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.JsonParser
+import kotlinx.coroutines.launch
 import okhttp3.Headers
 import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import server
 import theme.*
 import ui.json.JsonTree
+import java.net.InetAddress
 
 private val listWidth       = mutableStateOf(300.dp)
 private val selectedRequest = mutableStateOf<Int?>(null)
+private val submitted       = mutableStateOf(false)
 val namesList               = mutableStateOf(emptyList<String>())
 val timeInMilis             = mutableStateOf<Long>(0)
 val bytesPerPeriod          = mutableStateOf<Long>(0)
@@ -89,30 +94,82 @@ fun App(requests: SnapshotStateList<Record>) {
     colors = ColorPalette,
     typography = TypographyTypes
   ) {
-    val density = LocalDensity.current
-    val dragula = rememberDraggableState { delta ->
+    val snackbar = remember { SnackbarHostState() }
+    val scope    = rememberCoroutineScope()
+    val density  = LocalDensity.current
+    val dragula  = rememberDraggableState { delta ->
       listWidth.value = listWidth.value + with(density) { delta.toDp() }
     }
 
     Surface(M.fillMaxWidth()) {
-
       Row {
         // lavy zoznam
         Column(M.width(listWidth.value).fillMaxHeight().background(Color.White)) {
         //  Button(onClick = { clearHistory() }) { Text("Clear") }
           BasicTextField(
-            modifier = M.background(PrimeBlackVariant).padding(16.dp).fillMaxWidth(),
+            modifier  = M.background(PrimeBlackVariant).padding(16.dp).fillMaxWidth(),
             textStyle = TextStyle.Default.copy(color = Color.White),
-            value = realServerUrl.value,
+            value     = realServerUrl.value,
             onValueChange = { realServerUrl.value = it })
 
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(modifier = M.padding(start = 16.dp), style = T.body2, text = "Mock responses")
-            Checkbox(checked = catchEnabled.value, onCheckedChange = { catchEnabled.value = catchEnabled.value.not() })
+          LeftPaneRow("Mock responses", catchEnabled.value) { catchEnabled.value = catchEnabled.value.not() }
+          LeftPaneRow("Throttle requests", throttleCheckbox.value) { throttleCheckbox.value = throttleCheckbox.value.not() }
+          if (throttleCheckbox.value) ThrottleRequestSimulation(modifier = M.padding(horizontal = 16.dp).width(listWidth.value))
+          //DelayRequestSimulation(modifier = M.padding(horizontal = 16.dp).width(listWidth.value))
+          LeftPaneRow("Test on device", deviceCheckbox.value) { deviceCheckbox.value = deviceCheckbox.value.not() }
+
+          if (deviceCheckbox.value) {
+            val (ip, setIp)       = mutable("")
+            val (ipErr, setIpErr) = mutable(false)
+
+            if(ipErr) { ErrorText("Zadaj validnú IP") }
+
+            Column(
+              horizontalAlignment = Alignment.CenterHorizontally,
+              modifier = M.width(listWidth.value).padding(horizontal = 16.dp)
+            ) {
+              OutlinedTextField(
+                maxLines      = 1,
+                label         = { Text("Zadaj IP", M.padding(top = 4.dp)) },
+                colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
+                isError       = ipErr,
+                value         = ip,
+                onValueChange = { setIp(it); setIpErr(false) })
+
+              Button(
+                modifier = M.padding(top = 10.dp),
+                onClick  = {
+                  when {
+                    ip.isBlank()            -> setIpErr(true)
+                    isRequestOpen(requests) -> scope.launch { snackbar.showSnackbar("Set responses to all requests") }
+                    else -> {
+                      server.shutdown()
+                      server = MockWebServer()
+                      serverLogic(server)
+                      server.start(inetAddress = InetAddress.getByName(ip), port = 52242)
+                      submitted.value = true
+                      scope.launch { snackbar.showSnackbar("Device mode") }
+                    }
+                  }
+                }
+              ) { Text(modifier = M.padding(horizontal = 16.dp), text = "Submit") }
+            }
+          } else if (submitted.value) {
+
+            if (isRequestOpen(requests)) {
+              deviceCheckbox.value = true
+              scope.launch { snackbar.showSnackbar("Set responses to all requests") }
+            } else {
+              server.shutdown()
+              server = MockWebServer()
+              serverLogic(server)
+              server.start(port = 52242)
+              submitted.value = false
+              scope.launch { snackbar.showSnackbar("Emulator mode") }
+            }
           }
 
-          ThrottleRequestSimulation(modifier = M.padding(horizontal = 16.dp).width(listWidth.value))
-          //DelayRequestSimulation(modifier = M.padding(horizontal = 16.dp).width(listWidth.value))
+          SnackbarHost(snackbar)
           RequestHistory(requests)
         }
 
@@ -410,7 +467,7 @@ fun ThrottleItem(modifier: Modifier) {
   DogBodyText(modifier, "Bytes per period: ${if (data == 0L) "0 bytes" else "$data bytes"}")
   DogSlider(modifier, bytes, setBytes)
 
-  DogBodyText(modifier, "Sleep after bytes: ${if (time == null) "0 milis" else "$time milis"}")
+  DogBodyText(modifier, "Sleep after bytes: ${if (time == null) "0 milis" else "$time milis"}") //TODO
   DogSlider(modifier, period, setPeriod)
 }
 
@@ -432,6 +489,25 @@ fun DogBodyText(modifier: Modifier, text: String) {
     style    = T.body2,
     text     = text
   )
+}
+
+@Composable
+fun LeftPaneRow(text: String, check: Boolean, onCheck: (Boolean) -> Unit) {
+  Row(
+    verticalAlignment     = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.SpaceBetween, modifier = M.width(listWidth.value)
+  ) {
+    Text(modifier = M.padding(start = 16.dp), style = T.body2, text = text)
+    Checkbox(checked = check, onCheckedChange = onCheck)
+  }
+}
+
+private fun isRequestOpen(requests: SnapshotStateList<Record>): Boolean {
+  var isOpen = false
+  requests.forEach { req ->
+    if (req.response == null) isOpen = true
+  }
+  return isOpen
 }
 
 @Composable fun <A> mutable(init: A) = remember { mutableStateOf(init) }
