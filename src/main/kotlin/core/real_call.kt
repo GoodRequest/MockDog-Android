@@ -3,7 +3,6 @@ package core
 import mockdog.*
 import okhttp3.Headers
 import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -17,7 +16,7 @@ private val client = OkHttpClient.Builder()
   .build()
 
 fun sendRealRequest(record: Record): SentResponse {
-  val url = (realServerUrl.value.dropLastWhile { it == '/' } + record.request.requestUrl!!.encodedPath).toHttpUrlOrNull()!!
+  val url = record.request.requestUrl!!.newBuilder().scheme("https").port(443).host(record.request.headers["Real-Host"]!!).build()
   val realResponse = runCatching {
     client.newCall(request(
       url     = url,

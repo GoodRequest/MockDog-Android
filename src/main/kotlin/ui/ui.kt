@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -21,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.JsonParser
@@ -72,7 +70,7 @@ fun RequestHistory(requests: SnapshotStateList<Record>) {
               contentDescription  = "")
           else
             Text(
-              text     = item.response?.status.toString(),
+              text     = item.response.status.toString(),
               color    = C.onBackground,
               style    = T.body2)
         }
@@ -104,12 +102,6 @@ fun App(requests: SnapshotStateList<Record>) {
       Row {
         // lavy zoznam
         Column(M.width(listWidth.value).fillMaxHeight().background(Color.White)) {
-          BasicTextField(
-            modifier  = M.background(PrimeBlackVariant).padding(16.dp).fillMaxWidth(),
-            textStyle = TextStyle.Default.copy(color = Color.White),
-            value     = realServerUrl.value,
-            onValueChange = { realServerUrl.value = it })
-
           LeftPaneRow("Mock responses", catchEnabled.value) { catchEnabled.value = catchEnabled.value.not() }
           LeftPaneRow("Throttle requests", throttleCheckbox.value) { throttleCheckbox.value = throttleCheckbox.value.not() }
           if (throttleCheckbox.value) ThrottleRequestSimulation(modifier = M.padding(horizontal = 16.dp).width(listWidth.value))
@@ -242,7 +234,7 @@ fun App(requests: SnapshotStateList<Record>) {
                     }
 
                     if(isFormatted) {
-                      val parsed = JsonParser.parseString(response.body)
+                      val parsed = JsonParser.parseString(response.body) // TODO performance
                       val collapsed = remember { mutableStateListOf<String>() }
                       JsonTree(parsed, null, "", collapsed, {})
                     } else {

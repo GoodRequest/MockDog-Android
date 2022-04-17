@@ -27,10 +27,6 @@ data class SentResponse(
 
 var server = MockWebServer()
 
-//val realServerUrl = mutableStateOf("https://kia-mobile-dev.goodrequest.dev".toHttpUrlOrNull()!!)
-//val realServerUrl = mutableStateOf("https://mobileapp.kia.sk/api/v1/")
-//val realServerUrl = mutableStateOf("https://fitshaker-test.goodrequest.dev/")
-val realServerUrl    = mutableStateOf("https://benzinol-dev.goodrequest.dev/")
 val catchEnabled     = mutableStateOf(true)
 val throttleCheckbox = mutableStateOf(false)
 val timeInMillis     = mutableStateOf<Long>(0)
@@ -45,7 +41,7 @@ val requests = mutableStateListOf<Record>()
 // Toto vlakno caka (je blokovane) kym user na UI nezada data pre response.
 // Takychto cakajucich vlakien moze byt viacero naraz. Blokovanie a zaroven aj preposielanie dat z UI vlakna
 // je robene cez BlockingQueue. Tie sa tu drzia v mape kde kluc je ID vlakna ktore procesuje ten prislusny request
-private val responses = ConcurrentHashMap<UUID, BlockingQueue<SentResponse>>()
+private val responses = ConcurrentHashMap<UUID, BlockingQueue<SentResponse?>>()
 
 fun serverLogic(server: MockWebServer) {
   // Dispatcher je riadne nestastny nazov. Je to len "Handler" ktory spracovava jeden request a synchronne vrati prislusny response
@@ -58,17 +54,11 @@ fun serverLogic(server: MockWebServer) {
 
       return if(catchEnabled.value) {
         // Cakam (blokujem toto vlakno) kym mi nepride z UI aku odpoved mam poslat
-        val response = responses.getOrPut(requestId) { ArrayBlockingQueue(1) }.take()
-
-        if(response.status != 666) {
-          response
-        } else {
-          sendRealRequest(record)
-        }
+        responses.getOrPut(requestId) { ArrayBlockingQueue(1) }.take() ?: sendRealRequest(record)
       } else {
         sendRealRequest(record)
-      }.also { respo ->
-        updateRecord(requestId) { copy(response = respo) }
+      }.also { response ->
+        updateRecord(requestId) { copy(response = response) }
       }.let {
         if (bytesPerPeriod.value > 0 && timeInMillis.value > 0) {
           MockResponse()
@@ -83,15 +73,11 @@ fun serverLogic(server: MockWebServer) {
   }
 }
 
-fun sendResponse(id: UUID, code: Int, body: String) {
-  responses[id]!!.put(
-    SentResponse(url = "mock response", status = code, body = body, headers = Headers.headersOf()))
-}
+fun sendResponse(id: UUID, code: Int, body: String) =
+  responses[id]!!.put(SentResponse(url = "mock response", status = code, body = body, headers = Headers.headersOf()))
 
-fun sendRealShit(id: UUID) {
-  val url = realServerUrl.value.dropLastWhile { it == '/' }
-  responses[id]!!.put(SentResponse(url = url, status = 666, body = "", headers = Headers.headersOf()))
-}
+fun sendRealShit(id: UUID) =
+  responses[id]!!.put(null)
 
 fun updateRecord(id: UUID, change: Record.() -> Record) {
   requests.indexOfFirst { it.id == id }.takeIf { it != -1 }?.let { index ->
