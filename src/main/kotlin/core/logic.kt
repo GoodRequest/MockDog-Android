@@ -6,11 +6,12 @@ import core.sendRealRequest
 import okhttp3.*
 import okhttp3.mockwebserver.*
 import okhttp3.mockwebserver.Dispatcher
+import java.util.UUID
 import java.util.concurrent.*
 
 // "data" tu je iba kvoli copy metode. HashCode nefunguje dobre, bacha na to, nepouzivat!
 data class Record(
-  val threadId          : Long,
+  val id                : UUID,
   val request           : RecordedRequest,
   val response          : SentResponse? = null,
   val collapsedRequest  : Boolean = true,
@@ -44,24 +45,20 @@ val requests = mutableStateListOf<Record>()
 // Toto vlakno caka (je blokovane) kym user na UI nezada data pre response.
 // Takychto cakajucich vlakien moze byt viacero naraz. Blokovanie a zaroven aj preposielanie dat z UI vlakna
 // je robene cez BlockingQueue. Tie sa tu drzia v mape kde kluc je ID vlakna ktore procesuje ten prislusny request
-private val responses = ConcurrentHashMap<Long, BlockingQueue<SentResponse>>()
+private val responses = ConcurrentHashMap<UUID, BlockingQueue<SentResponse>>()
 
 fun serverLogic(server: MockWebServer) {
   // Dispatcher je riadne nestastny nazov. Je to len "Handler" ktory spracovava jeden request a synchronne vrati prislusny response
   server.dispatcher = object : Dispatcher() {
     override fun dispatch(request: RecordedRequest): MockResponse {
       // vytvori sa zaznam o prijatom requeste aj s informaciou ze sa procesuje na tomto vlakne
-      val threadId = Thread.currentThread().id
-      val record   = Record(threadId = threadId, request = request, wasReal = catchEnabled.value.not(), reqBody = request.body.readUtf8())
+      val requestId = UUID.randomUUID()// = Thread.currentThread().id
+      val record    = Record(id = requestId, request = request, wasReal = catchEnabled.value.not(), reqBody = request.body.readUtf8())
       requests.add(record)
-
-      // Aby som zaznam vedel updatnut musim ho vediet neskor indetifikovat, tak beriem jeho index
-      // BUG: Toto nemusi dat spravnu hodnotu ak parallelne stihol prebehnut iny zapis
-      val index = requests.size - 1
 
       return if(catchEnabled.value) {
         // Cakam (blokujem toto vlakno) kym mi nepride z UI aku odpoved mam poslat
-        val response = responses.getOrPut(threadId, { ArrayBlockingQueue(1) }).take()
+        val response = responses.getOrPut(requestId) { ArrayBlockingQueue(1) }.take()
 
         if(response.status != 666) {
           response
@@ -71,7 +68,7 @@ fun serverLogic(server: MockWebServer) {
       } else {
         sendRealRequest(record)
       }.also { respo ->
-        updateRecord(index) { copy(response = respo) }
+        updateRecord(requestId) { copy(response = respo) }
       }.let {
         if (bytesPerPeriod.value > 0 && timeInMillis.value > 0) {
           MockResponse()
@@ -86,16 +83,18 @@ fun serverLogic(server: MockWebServer) {
   }
 }
 
-fun sendResponse(id: Long, code: Int, body: String) {
+fun sendResponse(id: UUID, code: Int, body: String) {
   responses[id]!!.put(
     SentResponse(url = "mock response", status = code, body = body, headers = Headers.headersOf()))
 }
 
-fun sendRealShit(id: Long) {
+fun sendRealShit(id: UUID) {
   val url = realServerUrl.value.dropLastWhile { it == '/' }
   responses[id]!!.put(SentResponse(url = url, status = 666, body = "", headers = Headers.headersOf()))
 }
 
-fun updateRecord(index: Int, change: Record.() -> Record) {
-  requests[index] = requests[index].change()
+fun updateRecord(id: UUID, change: Record.() -> Record) {
+  requests.indexOfFirst { it.id == id }.takeIf { it != -1 }?.let { index ->
+    requests.set(index, requests[index].change())
+  }
 }

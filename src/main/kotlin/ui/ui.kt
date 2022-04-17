@@ -35,6 +35,7 @@ import okhttp3.mockwebserver.MockWebServer
 import theme.*
 import ui.json.JsonTree
 import java.net.InetAddress
+import java.util.UUID
 
 private val listWidth       = mutableStateOf(300.dp)
 private val selectedRequest = mutableStateOf<Int?>(null)
@@ -65,7 +66,7 @@ fun RequestHistory(requests: SnapshotStateList<Record>) {
         Row(M.width(40.dp)) {
           if (item.response == null)
             Icon(
-              modifier = M.size(22.dp).clickable { sendRealShit(item.threadId) },
+              modifier = M.size(22.dp).clickable { sendRealShit(item.id) },
               imageVector         = Icons.Rounded.Send,
               tint                = C.onBackground,
               contentDescription  = "")
@@ -193,7 +194,7 @@ fun App(requests: SnapshotStateList<Record>) {
                   modifier = M
                     .size(30.dp)
                     .rotate(collapsedRequest(270f, 0f))
-                    .clickable { updateRecord(index) { copy(collapsedRequest = !collapsedRequest) } },
+                    .clickable { updateRecord(id) { copy(collapsedRequest = !collapsedRequest) } },
                   imageVector         = Icons.Default.ArrowDropDown,
                   contentDescription  = "")
                 Text("Request", style = T.caption)
@@ -221,7 +222,7 @@ fun App(requests: SnapshotStateList<Record>) {
                   modifier = M
                     .size(30.dp)
                     .rotate(collapsedResponse(270f, 0f))
-                    .clickable { updateRecord(index) { copy(collapsedResponse = !collapsedResponse) } },
+                    .clickable { updateRecord(id) { copy(collapsedResponse = !collapsedResponse) } },
                   imageVector         = Icons.Default.ArrowDropDown,
                   contentDescription  = "")
                 Text("Response", style = T.caption)
@@ -269,7 +270,7 @@ fun App(requests: SnapshotStateList<Record>) {
                     }
                   }
                 else
-                  ResponseForm(id, req.path!!, index)
+                  ResponseForm(id, req.path!!)
               }
             }
           }
@@ -300,7 +301,7 @@ fun HeadersTable(headers: Headers) {
 }
 
 @Composable
-fun ResponseForm(id: Long, path: String, index: Int) {
+fun ResponseForm(id: UUID, path: String) {
   val codes                 = remember { listOf(200, 401, 404, 500) }
   val (body, setBody)       = mutable("")
   val (bodyErr, setBodyErr) = mutable(false)
@@ -357,7 +358,7 @@ fun ResponseForm(id: Long, path: String, index: Int) {
       }
       Button(onClick  = {
         sendRealShit(id)
-        updateRecord(index) { copy(wasReal = true) }
+        updateRecord(id) { copy(wasReal = true) }
       }) {
         Text(modifier = M.padding(horizontal = 16.dp), text = "REAL SHIT")
       }
