@@ -25,21 +25,20 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.JsonParser
+import core.namesList
+import core.readFile
+import core.saveFile
 import kotlinx.coroutines.launch
 import okhttp3.Headers
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import server
 import theme.*
 import ui.json.JsonTree
 import java.net.InetAddress
 
 private val listWidth       = mutableStateOf(300.dp)
 private val selectedRequest = mutableStateOf<Int?>(null)
-private val submitted       = mutableStateOf(false)
-val namesList               = mutableStateOf(emptyList<String>())
-val timeInMilis             = mutableStateOf<Long>(0)
-val bytesPerPeriod          = mutableStateOf<Long>(0)
+private val submitted       = mutableStateOf(false) // TODO co to?
 
 @Composable
 fun RequestHistory(requests: SnapshotStateList<Record>) {
@@ -47,7 +46,8 @@ fun RequestHistory(requests: SnapshotStateList<Record>) {
 
   LaunchedEffect(requests.lastOrNull()) {
     println(requests.size)
-    lazyListState.animateScrollToItem(requests.indices.last)
+    if(requests.isNotEmpty())
+      lazyListState.animateScrollToItem(requests.indices.last)
   }
 
   LazyColumn(M.background(Color.White), reverseLayout = true, state = lazyListState) {
@@ -97,15 +97,12 @@ fun App(requests: SnapshotStateList<Record>) {
     val snackbar = remember { SnackbarHostState() }
     val scope    = rememberCoroutineScope()
     val density  = LocalDensity.current
-    val dragula  = rememberDraggableState { delta ->
-      listWidth.value = listWidth.value + with(density) { delta.toDp() }
-    }
+    val dragula  = rememberDraggableState { delta -> listWidth.value = listWidth.value + with(density) { delta.toDp() } }
 
     Surface(M.fillMaxWidth()) {
       Row {
         // lavy zoznam
         Column(M.width(listWidth.value).fillMaxHeight().background(Color.White)) {
-        //  Button(onClick = { clearHistory() }) { Text("Clear") }
           BasicTextField(
             modifier  = M.background(PrimeBlackVariant).padding(16.dp).fillMaxWidth(),
             textStyle = TextStyle.Default.copy(color = Color.White),
@@ -462,7 +459,7 @@ fun ThrottleItem(modifier: Modifier) {
   val time = period.toLong()
 
   bytesPerPeriod.value = data
-  timeInMilis.value    = time
+  timeInMillis.value    = time
 
   DogBodyText(modifier, "Bytes per period: ${if (data == 0L) "0 bytes" else "$data bytes"}")
   DogSlider(modifier, bytes, setBytes)

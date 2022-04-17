@@ -3,11 +3,11 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.5.31"
-    id("org.jetbrains.compose") version "1.0.0"
+    kotlin("jvm") version "1.6.10"
+    id("org.jetbrains.compose") version "1.1.1"
 }
 
-group = "on.blasko"
+group = "com.goodrequest"
 version = "1.0"
 
 repositories {
@@ -18,7 +18,7 @@ repositories {
 
 dependencies {
     implementation(compose.desktop.currentOs)
-    implementation("com.google.code.gson:gson:2.8.9")
+    implementation("com.google.code.gson:gson:2.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.9.3")
     implementation("com.squareup.okhttp3:mockwebserver:4.9.3")
 }

@@ -1,25 +1,11 @@
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import core.loadMocks
 import mockdog.*
-import okhttp3.mockwebserver.MockWebServer
-import java.io.File
-
-var server = MockWebServer()
 
 fun main() = application {
-  // nacitanie ulozenych fake-json suborov do namesList uz pri starte - tym padom vieme hned zobrazovat ulozene subory
-  LaunchedEffect(key1 = Unit) {
-    try {
-      val path = ".\\mocky"
-      val file = File(path)
-      file.listFiles()?.forEach {
-        namesList.value = namesList.value + it.name.substringBefore(".txt")
-      }
-    } catch (e: Throwable) {
-      e.printStackTrace()
-    }
-  }
+  LaunchedEffect(key1 = Unit) { loadMocks() }
 
   try {
     serverLogic(server)
