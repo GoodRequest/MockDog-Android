@@ -3,35 +3,23 @@ package ui.json
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.Button
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.JsonElement
-import theme.BlueLight
 import theme.IconBlue
 import theme.PrimeBlack
-import theme.Yellow
 
 //val example = """
 //    {"menu": {
@@ -56,14 +44,14 @@ import theme.Yellow
 //    JsonTree(parsed, null, "", collapsed)
 //}
 
-val keyColor = IconBlue//AppTheme.code.jsonKey.color
-val bracesColor = PrimeBlack//AppTheme.code.jsonPunctuation.color
-val textSize = 12.sp
+private val keyColor    = IconBlue
+private val bracesColor = PrimeBlack
+private val textSize    = 14.sp
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotStateList<String>, onKeySelected: (String) -> Unit) {
-  val offset = 15.dp
+  val offset = 16.dp
   val fullPath = if(key != null) "$path/$key" else path
 
   when {
@@ -89,11 +77,14 @@ fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotS
               tint                = keyColor)
 
           if(fullPath in collapsed) {
-            Text(if(root.asJsonArray.isEmpty) "]" else "${root} ]",
-              color = bracesColor,
-              fontSize = textSize,
-              overflow = TextOverflow.Ellipsis,
-              maxLines = 1)
+            SelectionContainer {
+              Text(
+                if (root.asJsonArray.isEmpty) "]" else "$root ]",
+                color = bracesColor,
+                fontSize = textSize,
+                overflow = TextOverflow.Ellipsis,
+                maxLines = 1)
+            }
           }
         }
         if(fullPath !in collapsed) {
@@ -108,7 +99,7 @@ fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotS
       Column(modifier = Modifier.padding(horizontal = offset, vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           if(key != null) Text(
-            modifier = Modifier.clickable { onKeySelected("$fullPath") },
+            modifier = Modifier.clickable { onKeySelected(fullPath) },
             text     = "$key: ",
             fontSize = textSize,
             color    = keyColor)
@@ -134,12 +125,14 @@ fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotS
               tint                = keyColor)
 
           if(fullPath in collapsed) {
-            Text(
-              text = if(root.asJsonObject.size() == 0) "}" else "$root }",
-              fontSize = textSize,
-              color = bracesColor,
-              overflow = TextOverflow.Ellipsis,
-              maxLines = 1)
+            SelectionContainer {
+              Text(
+                text     = if(root.asJsonObject.size() == 0) "}" else "$root }",
+                fontSize = textSize,
+                color    = bracesColor,
+                overflow = TextOverflow.Ellipsis,
+                maxLines = 1)
+            }
           }
         }
         if(fullPath !in collapsed) {
@@ -151,19 +144,19 @@ fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotS
       }
     }
     else -> {
-      Row(modifier = Modifier.padding(horizontal = offset)) {
-        Text(
-          text     = "$key: ",
-          fontSize = textSize,
-          color    = keyColor)
-        Text(
-          text         = "$root",
-          // onValueChange = {},
-          fontSize = textSize,
-          color = PrimeBlack
-        )
+      SelectionContainer {
+        Row(modifier = Modifier.padding(horizontal = offset)) {
+          Text(
+            text     = "$key: ",
+            fontSize = textSize,
+            color    = keyColor)
+          Text(
+            text     = "$root",
+            // onValueChange = {},
+            fontSize = textSize,
+            color    = PrimeBlack)
+        }
       }
     }
   }
 }
-

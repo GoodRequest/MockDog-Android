@@ -28,7 +28,6 @@ val timeInMillis   = mutableStateOf<Long>(0)
 val bytesPerPeriod = mutableStateOf<Long>(0)
 
 // Zoznam vsetkych prijatych requestov ktore prisli na server zoradeny podla dorucenia
-//val records   = mutableStateListOf<UUID>() // namiesto tohto mozno priamo list Requestov a ten by mal id v sebe
 val requests  = mutableStateListOf<Request>()
 val responses = mutableStateMapOf<UUID, Response>()
 

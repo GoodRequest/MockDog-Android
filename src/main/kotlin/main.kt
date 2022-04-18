@@ -1,6 +1,9 @@
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
 import core.loadMocks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,6 +17,7 @@ fun main() {
 
     Window(
       title = "MockDog",
+      state = rememberWindowState(size = DpSize(1920.dp, 1080.dp)),
       onCloseRequest = ::exitApplication
     ) {
       App()
