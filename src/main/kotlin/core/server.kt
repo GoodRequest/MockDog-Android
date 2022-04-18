@@ -10,6 +10,7 @@ import java.util.concurrent.*
 
 // "data" tu je iba kvoli copy metode. HashCode nefunguje dobre, bacha na to, nepouzivat!
 data class Request(
+  val id      : UUID,
   val request : RecordedRequest,
   val body    : String)
 
@@ -27,35 +28,35 @@ val timeInMillis   = mutableStateOf<Long>(0)
 val bytesPerPeriod = mutableStateOf<Long>(0)
 
 // Zoznam vsetkych prijatych requestov ktore prisli na server zoradeny podla dorucenia
-val records   = mutableStateListOf<UUID>() // namiesto tohto mozno priamo list Requestov a ten by mal id v sebe
-val requests  = mutableStateMapOf<UUID, Request>()
+//val records   = mutableStateListOf<UUID>() // namiesto tohto mozno priamo list Requestov a ten by mal id v sebe
+val requests  = mutableStateListOf<Request>()
 val responses = mutableStateMapOf<UUID, Response>()
 
 // Kazdy prichadzajuci request sa procesuje na vlastnom samostatnom vlakne (toto handluje na pozadi okhttp).
 // Toto vlakno caka (je blokovane) kym user na UI nezada data pre response.
 // Takychto cakajucich vlakien moze byt viacero naraz. Blokovanie a zaroven aj preposielanie dat z UI vlakna
 // je robene cez BlockingQueue. Tie sa tu drzia v mape kde kluc je ID vlakna ktore procesuje ten prislusny request
+// TODO toto teraz rastie do nekonecna, mazat to ked uz je request odoslany
+// TODO namiesto UUID by stacilo mat atomicky incrementovany Long
 private val queues = ConcurrentHashMap<UUID, BlockingQueue<Response>>()
 
 var server = MockWebServer().apply {
   dispatcher = object : Dispatcher() {
     override fun dispatch(recorded: RecordedRequest): MockResponse {
-      val id = UUID.randomUUID()
-      records.add(id)
-
       val request = Request(
+        id      = UUID.randomUUID(),
         request = recorded,
         body    = recorded.body.readUtf8()) // TODO exception
 
-      requests[id] = request
+      requests.add(request)
 
       val response: SentResponse = if(catchEnabled.value) {
-        val value = queues.getOrPut(id) { ArrayBlockingQueue(1) }.take()
-        if(value is SentResponse) value else { responses[id] = value; sendRealRequest(request) }
+        val value = queues.getOrPut(request.id) { ArrayBlockingQueue(1) }.take()
+        if(value is SentResponse) value else { responses[request.id] = value; sendRealRequest(request) }
       } else
         sendRealRequest(request)
 
-      responses[id] = response
+      responses[request.id] = response
 
       return MockResponse()
         .apply { if (bytesPerPeriod.value > 0 && timeInMillis.value > 0)

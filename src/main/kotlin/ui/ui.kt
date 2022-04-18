@@ -68,7 +68,7 @@ fun App() {
 
         // detail
         selectedRequest.value?.let { id ->
-          val (req, reqBody)      = requests[id]!!
+          val (_, req, reqBody)   = requests.firstOrNull { it.id == id }!!
           val response            = responses[id]
           val isCollapsedRequest  = collapsedRequest[id]  != null
           val isCollapsedResponse = collapsedResponse[id] != null
@@ -183,19 +183,17 @@ fun App() {
 }
 
 @Composable
-fun RequestHistory(records: SnapshotStateList<UUID>) {
+fun RequestHistory(requests: SnapshotStateList<Request>) {
   val lazyListState = rememberLazyListState()
 
-  // TODO
-//  LaunchedEffect(requests.lastOrNull()) {
-//    println(requests.size)
-//    if(requests.isNotEmpty())
-//      lazyListState.animateScrollToItem(requests.indices.last)
-//  }
+  LaunchedEffect(requests.lastOrNull()) {
+    if(requests.isNotEmpty())
+      lazyListState.animateScrollToItem(requests.indices.last)
+  }
 
   LazyColumn(M.background(Color.White), reverseLayout = true, state = lazyListState) {
-    itemsIndexed(records) { index, id ->
-      val isSelected = (id == selectedRequest.value)
+    itemsIndexed(requests) { index, request ->
+      val isSelected = (request.id == selectedRequest.value)
       Row(verticalAlignment = Alignment.CenterVertically, modifier = M
         .fillParentMaxWidth()
         .background(when {
@@ -203,12 +201,12 @@ fun RequestHistory(records: SnapshotStateList<UUID>) {
           index % 2 == 1 -> C.surface
           else           -> C.background
         })
-        .clickable { selectedRequest.value = id }
+        .clickable { selectedRequest.value = request.id }
         .padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(M.width(40.dp)) {
-          when(val response = responses[id]) {
+          when(val response = responses[request.id]) {
             null -> Icon(
-              modifier = M.size(22.dp).clickable { sendRealResponse(id) },
+              modifier = M.size(22.dp).clickable { sendRealResponse(request.id) },
               imageVector         = Icons.Rounded.Send,
               tint                = C.onBackground,
               contentDescription  = "")
@@ -224,7 +222,6 @@ fun RequestHistory(records: SnapshotStateList<UUID>) {
               style = T.body2)
           }
         }
-        val request = requests[id]!!
         Text(
           modifier = M.width(50.dp),
           text     = request.request.method.toString(),
@@ -279,7 +276,7 @@ fun ResponseForm(id: UUID, path: String) {
       if (bodyErr) { ErrorText("Zadaj json") }
     }
 
-    // ukladanie  fake jsonu do suboru
+    // ukladanie fake jsonu do suboru
     SaveMockItemsRow(body = body, setBody = setBody, setBodyErr = setBodyErr, path = path)
 
     DogTitleText(text = "Json mocks")
@@ -462,8 +459,8 @@ fun LeftPane() {
           modifier = M.padding(top = 10.dp),
           onClick  = {
             when {
-              ip.isBlank()                   -> setIpErr(true)
-              records.size != responses.size -> scope.launch { snackbar.showSnackbar("Set responses to all requests") }
+              ip.isBlank()                    -> setIpErr(true)
+              requests.size != responses.size -> scope.launch { snackbar.showSnackbar("Set responses to all requests") }
               else -> {
                 server.shutdown()
                 server = MockWebServer()
@@ -478,7 +475,7 @@ fun LeftPane() {
       }
     } else if (submitted.value) {
 
-      if (records.size != responses.size) {
+      if (requests.size != responses.size) {
         deviceCheckbox.value = true
         scope.launch { snackbar.showSnackbar("Set responses to all requests") }
       } else {
@@ -492,7 +489,7 @@ fun LeftPane() {
     }
 
     SnackbarHost(snackbar)
-    RequestHistory(records)
+    RequestHistory(requests)
   }
 }
 
