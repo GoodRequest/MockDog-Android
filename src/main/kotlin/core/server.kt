@@ -5,6 +5,7 @@ import core.sendRealRequest
 import okhttp3.*
 import okhttp3.mockwebserver.*
 import okhttp3.mockwebserver.Dispatcher
+import java.net.InetAddress
 import java.util.UUID
 import java.util.concurrent.*
 
@@ -38,32 +39,37 @@ val responses = mutableStateMapOf<UUID, Response>()
 // TODO toto teraz rastie do nekonecna, mazat to ked uz je request odoslany
 // TODO namiesto UUID by stacilo mat atomicky incrementovany Long
 private val queues = ConcurrentHashMap<UUID, BlockingQueue<Response>>()
+private var server: MockWebServer? = null
 
-var server = MockWebServer().apply {
-  dispatcher = object : Dispatcher() {
-    override fun dispatch(recorded: RecordedRequest): MockResponse {
-      val request = Request(
-        id      = UUID.randomUUID(),
-        request = recorded,
-        body    = recorded.body.readUtf8()) // TODO exception
+fun startServer(port: Int = 52242, inetAddress: InetAddress = InetAddress.getByName("localhost")) {
+  server?.shutdown()
+  server = MockWebServer().apply {
+    dispatcher = object : Dispatcher() {
+      override fun dispatch(recorded: RecordedRequest): MockResponse {
+        val request = Request(
+          id      = UUID.randomUUID(),
+          request = recorded,
+          body    = recorded.body.readUtf8()) // TODO exception
 
-      requests.add(request)
+        requests.add(request)
 
-      val response: SentResponse = if(catchEnabled.value) {
-        val value = queues.getOrPut(request.id) { ArrayBlockingQueue(1) }.take()
-        if(value is SentResponse) value else { responses[request.id] = value; sendRealRequest(request) }
-      } else
-        sendRealRequest(request)
+        val response: SentResponse = if(catchEnabled.value) {
+          val value = queues.getOrPut(request.id) { ArrayBlockingQueue(1) }.take()
+          if(value is SentResponse) value else { responses[request.id] = value; sendRealRequest(request) }
+        } else
+          sendRealRequest(request)
 
-      responses[request.id] = response
+        responses[request.id] = response
 
-      return MockResponse()
-        .apply { if (bytesPerPeriod.value > 0 && timeInMillis.value > 0)
-          throttleBody(bytesPerPeriod.value, timeInMillis.value, TimeUnit.MILLISECONDS) }
-        .setResponseCode(response.status)
-        .setHeaders(response.headers)
-        .setBody(response.body)
+        return MockResponse()
+          .apply { if (bytesPerPeriod.value > 0 && timeInMillis.value > 0)
+            throttleBody(bytesPerPeriod.value, timeInMillis.value, TimeUnit.MILLISECONDS) }
+          .setResponseCode(response.status)
+          .setHeaders(response.headers)
+          .setBody(response.body)
+      }
     }
+    start(inetAddress, port)
   }
 }
 

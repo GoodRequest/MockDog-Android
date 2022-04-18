@@ -6,6 +6,8 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -17,8 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.*
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
 import core.*
 import okhttp3.Headers
@@ -203,46 +208,58 @@ fun ResponseForm(id: UUID, path: String) {
   Column(M.fillMaxWidth().padding(horizontal = 16.dp)) {
 
     Column {
+      // pomocny val kde mam ulozeny string requestu ale len cast pred query,
+      // tento val nasledne pouzivame na porovnanie(vo filtri) s nazvami suborov ulozenych v namesList
+      val requestPath = path.substringBefore("?").replace("/", "_").replace("?", "_")
+      // zobrazenie prislunych file-ov ku danemu requestu v podobe tlacidiel s nazvom daneho file-u
+      val savedMocks = savedMocksFor(requestPath)
+      if(savedMocks.isNotEmpty()) {
+        Row(M.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+          Text(text = "Saved:", style = T.caption)
+          savedMocks.forEach { file ->
+            ClickableText(
+              style = T.button,
+              text = buildAnnotatedString { withStyle(SpanStyle(
+                fontSize = 16.sp,
+                color = VioletDark,
+                textDecoration = TextDecoration.Underline)) {
+                append(file.substringAfterLast("_"))
+              } },
+              onClick = { setBody(readFile(file)) })
+          }
+        }
+      }
+
       OutlinedTextField(
-        modifier      = M.padding(bottom = 16.dp),
+        modifier      = M.padding(bottom = 16.dp).fillMaxWidth(),
         maxLines      = 15,
-        label         = { Text("Json mock", M.padding(top = 4.dp)) },
+        label         = { Text("JSON mock", M.padding(top = 4.dp), style = T.caption) },
         colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
         isError       = bodyErr,
         value         = body,
         onValueChange = { setBody(it); setBodyErr(false) })
 
-      if (bodyErr) { ErrorText("Zadaj json") }
-    }
+      if(body.isNotBlank())
+        ClickableText(
+          text = buildAnnotatedString { withStyle(SpanStyle(color = Color.Black)) { append("format json") } },
+          onClick = {
+            val gson = GsonBuilder().setPrettyPrinting().create()
+            val element = JsonParser.parseString(body)
+            setBody(gson.toJson(element))
+          })
 
-    // pomocny val kde mam ulozeny string requestu ale len cast pred query,
-    // tento val nasledne pouzivame na porovnanie(vo filtri) s nazvami suborov ulozenych v namesList
-    val requestPath = path.substringBefore("?").replace("/", "_").replace("?", "_")
-
-    // zobrazenie prislunych file-ov ku danemu requestu v podobe tlacidiel s nazvom daneho file-u
-    val savedMocks = savedMocksFor(requestPath)
-    if(savedMocks.isNotEmpty()) {
-      DogTitleText(text = "Saved mocks")
-      Row(M.padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        savedMocks.forEach { file ->
-          Button(onClick = { setBody(readFile(file)) }) {
-            Text(modifier = M.padding(horizontal = 16.dp), text = file.substringAfterLast("_"))
-          }
-        }
-      }
+      if (bodyErr) { ErrorText("Fill JSON response") }
     }
 
     DogTitleText(text = "Send response with code")
 
-    Row(M.padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Row(M.padding(bottom = 16.dp, top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       codes.forEach { code ->
-        Button(onClick  = { sendMockResponse(id, code, body) }) {
-          Text(modifier = M.padding(horizontal = 16.dp), text = "$code")
+        Button(onClick  = { sendMockResponse(id, code, body) }, shape = CircleShape) {
+          Text(modifier = M.padding(horizontal = 8.dp), text = "$code")
         }
       }
-      Button(onClick  = {
-        sendRealResponse(id)
-      }) {
+      Button(onClick  = { sendRealResponse(id) }, shape = CircleShape) {
         Text(modifier = M.padding(horizontal = 16.dp), text = "REAL")
       }
     }
@@ -286,8 +303,7 @@ fun SaveMockItemsRow(
             if (body.isEmpty() && setBodyErr != null) setBodyErr(true)
           }
           else -> {
-            val pathName = path.substringBefore("?").replace("/", "_") + "_" + name
-            saveFile(pathName, body)
+            saveFile(path, name, body)
             setName("")
             setBody?.invoke("")
           }

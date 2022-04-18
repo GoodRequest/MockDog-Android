@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import mockdog.*
-import okhttp3.mockwebserver.MockWebServer
 import theme.*
 import java.net.InetAddress
 import java.util.UUID
@@ -69,10 +68,7 @@ fun LeftPane(listWidth: Dp, selected: UUID?, onSelect: (UUID) -> Unit) {
               ip.isBlank()                    -> setIpErr(true)
               requests.size != responses.size -> scope.launch { snackbar.showSnackbar("Set responses to all requests") }
               else -> {
-                server.shutdown()
-                server = MockWebServer()
-                // TODO restart serverLogic(server)
-                server.start(inetAddress = InetAddress.getByName(ip), port = 52242)
+                startServer(inetAddress = InetAddress.getByName(ip), port = 52242)
                 submitted.value = true
                 scope.launch { snackbar.showSnackbar("Device mode") }
               }
@@ -81,15 +77,11 @@ fun LeftPane(listWidth: Dp, selected: UUID?, onSelect: (UUID) -> Unit) {
         ) { Text(modifier = M.padding(horizontal = 16.dp), text = "Submit") }
       }
     } else if (submitted.value) {
-
       if (requests.size != responses.size) {
         deviceCheckbox.value = true
         scope.launch { snackbar.showSnackbar("Set responses to all requests") }
       } else {
-        server.shutdown()
-        server = MockWebServer()
-        // TODO restart serverLogic(server)
-        server.start(port = 52242)
+        startServer()
         submitted.value = false
         scope.launch { snackbar.showSnackbar("Emulator mode") }
       }

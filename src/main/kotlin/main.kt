@@ -10,7 +10,7 @@ import kotlinx.coroutines.withContext
 import mockdog.*
 
 fun main() {
-  server.start(port = 52242)
+  startServer()
 
   application {
     LaunchedEffect(key1 = Unit) { withContext(Dispatchers.IO) { loadMocks() } }
