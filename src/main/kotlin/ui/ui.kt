@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -35,133 +36,29 @@ import ui.json.JsonTree
 import java.net.InetAddress
 import java.util.UUID
 
-private val listWidth       = mutableStateOf(300.dp)
-private val selectedRequest = mutableStateOf<Int?>(null)
-private val submitted       = mutableStateOf(false) // TODO co to?
+private val listWidth         = mutableStateOf(300.dp)
+private val selectedRequest   = mutableStateOf<UUID?>(null)
+private val collapsedRequest  = mutableStateMapOf<UUID, Unit>()
+private val collapsedResponse = mutableStateMapOf<UUID, Unit>()
+private val submitted         = mutableStateOf(false) // TODO co to?
+private val deviceCheckbox    = mutableStateOf(false)
+private val throttleCheckbox  = mutableStateOf(false)
+
+private fun SnapshotStateMap<UUID, Unit>.toggle(key: UUID) = if (containsKey(key)) remove(key) else put(key, Unit)
 
 @Composable
-fun RequestHistory(requests: SnapshotStateList<Record>) {
-  val lazyListState = rememberLazyListState()
-
-  LaunchedEffect(requests.lastOrNull()) {
-    println(requests.size)
-    if(requests.isNotEmpty())
-      lazyListState.animateScrollToItem(requests.indices.last)
-  }
-
-  LazyColumn(M.background(Color.White), reverseLayout = true, state = lazyListState) {
-    itemsIndexed(requests) { index, item ->
-      val isSelected = (index == selectedRequest.value)
-      Row(verticalAlignment = Alignment.CenterVertically, modifier = M
-        .fillParentMaxWidth()
-        .background(when {
-          isSelected     -> BlueLight
-          index % 2 == 1 -> C.surface
-          else           -> C.background
-        })
-        .clickable { selectedRequest.value = index }
-        .padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Row(M.width(40.dp)) {
-          if (item.response == null)
-            Icon(
-              modifier = M.size(22.dp).clickable { sendRealShit(item.id) },
-              imageVector         = Icons.Rounded.Send,
-              tint                = C.onBackground,
-              contentDescription  = "")
-          else
-            Text(
-              text     = item.response.status.toString(),
-              color    = C.onBackground,
-              style    = T.body2)
-        }
-        Text(
-          modifier = M.width(50.dp),
-          text     = item.request.method.toString(),
-          color    = C.onBackground,
-          style    = T.body2)
-        Text(
-          text  = item.request.path!!,
-          style = T.body2)
-      }
-    }
-  }
-}
-
-@Composable
-fun App(requests: SnapshotStateList<Record>) {
+fun App() {
   MaterialTheme(
-    colors = ColorPalette,
+    colors     = ColorPalette,
     typography = TypographyTypes
   ) {
-    val snackbar = remember { SnackbarHostState() }
-    val scope    = rememberCoroutineScope()
     val density  = LocalDensity.current
     val dragula  = rememberDraggableState { delta -> listWidth.value = listWidth.value + with(density) { delta.toDp() } }
 
     Surface(M.fillMaxWidth()) {
       Row {
         // lavy zoznam
-        Column(M.width(listWidth.value).fillMaxHeight().background(Color.White)) {
-          LeftPaneRow("Mock responses", catchEnabled.value) { catchEnabled.value = catchEnabled.value.not() }
-          LeftPaneRow("Throttle requests", throttleCheckbox.value) { throttleCheckbox.value = throttleCheckbox.value.not() }
-          if (throttleCheckbox.value) ThrottleRequestSimulation(modifier = M.padding(horizontal = 16.dp).width(listWidth.value))
-          //DelayRequestSimulation(modifier = M.padding(horizontal = 16.dp).width(listWidth.value))
-          LeftPaneRow("Test on device", deviceCheckbox.value) { deviceCheckbox.value = deviceCheckbox.value.not() }
-
-          if (deviceCheckbox.value) {
-            val (ip, setIp)       = mutable("")
-            val (ipErr, setIpErr) = mutable(false)
-
-            if(ipErr) { ErrorText("Zadaj validnú IP") }
-
-            Column(
-              horizontalAlignment = Alignment.CenterHorizontally,
-              modifier = M.width(listWidth.value).padding(horizontal = 16.dp)
-            ) {
-              OutlinedTextField(
-                maxLines      = 1,
-                label         = { Text("Zadaj IP", M.padding(top = 4.dp)) },
-                colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
-                isError       = ipErr,
-                value         = ip,
-                onValueChange = { setIp(it); setIpErr(false) })
-
-              Button(
-                modifier = M.padding(top = 10.dp),
-                onClick  = {
-                  when {
-                    ip.isBlank()            -> setIpErr(true)
-                    isRequestOpen(requests) -> scope.launch { snackbar.showSnackbar("Set responses to all requests") }
-                    else -> {
-                      server.shutdown()
-                      server = MockWebServer()
-                      serverLogic(server)
-                      server.start(inetAddress = InetAddress.getByName(ip), port = 52242)
-                      submitted.value = true
-                      scope.launch { snackbar.showSnackbar("Device mode") }
-                    }
-                  }
-                }
-              ) { Text(modifier = M.padding(horizontal = 16.dp), text = "Submit") }
-            }
-          } else if (submitted.value) {
-
-            if (isRequestOpen(requests)) {
-              deviceCheckbox.value = true
-              scope.launch { snackbar.showSnackbar("Set responses to all requests") }
-            } else {
-              server.shutdown()
-              server = MockWebServer()
-              serverLogic(server)
-              server.start(port = 52242)
-              submitted.value = false
-              scope.launch { snackbar.showSnackbar("Emulator mode") }
-            }
-          }
-
-          SnackbarHost(snackbar)
-          RequestHistory(requests)
-        }
+        LeftPane()
 
         // divider
         Box(M.width(4.dp)
@@ -170,8 +67,11 @@ fun App(requests: SnapshotStateList<Record>) {
           .draggable(dragula, Orientation.Horizontal))
 
         // detail
-        selectedRequest.value?.let { index ->
-          val (id, req, response, collapsedRequest, collapsedResponse, wasReal, reqBody) = requests[index]
+        selectedRequest.value?.let { id ->
+          val (req, reqBody)      = requests[id]!!
+          val response            = responses[id]
+          val isCollapsedRequest  = collapsedRequest[id]  != null
+          val isCollapsedResponse = collapsedResponse[id] != null
 
           Column(M.padding(16.dp).verticalScroll(rememberScrollState())) {
             Text(
@@ -185,14 +85,14 @@ fun App(requests: SnapshotStateList<Record>) {
                 Icon(
                   modifier = M
                     .size(30.dp)
-                    .rotate(collapsedRequest(270f, 0f))
-                    .clickable { updateRecord(id) { copy(collapsedRequest = !collapsedRequest) } },
-                  imageVector         = Icons.Default.ArrowDropDown,
-                  contentDescription  = "")
+                    .rotate(isCollapsedRequest(270f, 0f))
+                    .clickable { collapsedRequest.toggle(id) },
+                  imageVector        = Icons.Default.ArrowDropDown,
+                  contentDescription = "")
                 Text("Request", style = T.caption)
               }
-
-              if(collapsedRequest.not()) {
+              // Request body
+              if(isCollapsedRequest.not()) {
                 HeadersTable(req.headers)
                 if (reqBody.isNotBlank()) {
                   SelectionContainer {
@@ -205,68 +105,134 @@ fun App(requests: SnapshotStateList<Record>) {
               }
             }
 
-            Box(M.height(16.dp))
+            Spacer(M.height(16.dp))
 
             // response
             Column(M.background(color = Color.White, shape = SH.medium).fillMaxWidth()) {
+              // Response header
               Row(M.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                  modifier = M
+                Icon(modifier = M
                     .size(30.dp)
-                    .rotate(collapsedResponse(270f, 0f))
-                    .clickable { updateRecord(id) { copy(collapsedResponse = !collapsedResponse) } },
+                    .rotate(isCollapsedResponse(270f, 0f))
+                    .clickable { collapsedResponse.toggle(id) },
                   imageVector         = Icons.Default.ArrowDropDown,
                   contentDescription  = "")
                 Text("Response", style = T.caption)
               }
-              if(collapsedResponse.not()) {
-                if (response != null)
-                  Column {
-                    Text(modifier = M.padding(horizontal = 16.dp), text = MockResponse().setResponseCode(response.status).status)
-                    Text(modifier = M.padding(horizontal = 16.dp, vertical = 4.dp), text = response.url, style = T.body2, color = C.onSurface.copy(alpha = 0.6f))
-                    HeadersTable(response.headers)
+              // Response body
+              if(isCollapsedResponse.not()) {
+                when(response) {
+                  null -> ResponseForm(id, req.path!!)
+                  is Loading -> Text("Sending...")
+                  is SentResponse -> {
+                    Column {
+                      // Status code + url
+                      Text(
+                        modifier = M.padding(horizontal = 16.dp),
+                        text     = MockResponse().setResponseCode(response.status).status + " (${response.duration}ms)")
+                      Text(
+                        modifier = M.padding(horizontal = 16.dp, vertical = 4.dp),
+                        text     = response.url,
+                        style    = T.body2,
+                        color    = C.onSurface.copy(alpha = 0.6f))
+                      // Headers
+                      HeadersTable(response.headers)
 
-                    val (isFormatted, setFormatted) = remember { mutableStateOf(false) }
+                      val (isFormatted, setFormatted) = remember { mutableStateOf(false) }
 
-                    Row(M.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                      Text("Format JSON", fontSize = 12.sp, color = C.onSurface.copy(alpha = 0.6f))
-                      Checkbox(checked = isFormatted, onCheckedChange = setFormatted)
-                    }
+                      Row(M.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Format JSON", fontSize = 12.sp, color = C.onSurface.copy(alpha = 0.6f))
+                        Checkbox(isFormatted, setFormatted)
+                      }
 
-                    if(isFormatted) {
-                      val parsed = JsonParser.parseString(response.body) // TODO performance
-                      val collapsed = remember { mutableStateListOf<String>() }
-                      JsonTree(parsed, null, "", collapsed, {})
-                    } else {
-                      SelectionContainer {
-                        Text(
-                          modifier = M.padding(16.dp),
-                          fontSize = 14.sp,
-                          text     = response.body)
+                      if(isFormatted) {
+                        val parsed    = JsonParser.parseString(response.body) // TODO performance
+                        val collapsed = remember { mutableStateListOf<String>() }
+                        JsonTree(parsed, null, "", collapsed, {})
+                      } else {
+                        SelectionContainer {
+                          Text(
+                            modifier = M.padding(16.dp),
+                            fontSize = 14.sp,
+                            text     = response.body)
+                        }
+                      }
+
+                      if (response.url != "mock") {
+                        DogTitleText(
+                          modifier = Modifier.padding(horizontal = 16.dp),
+                          text     = "You can save response to file:")
+
+                        SaveMockItemsRow(
+                          modifier   = Modifier.padding(horizontal = 16.dp),
+                          body       = response.body,
+                          setBody    = null,
+                          setBodyErr = null,
+                          path       = req.path!!)
                       }
                     }
-
-                    if (wasReal) {
-                      DogTitleText(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        text     = "You can save response to file:"
-                      )
-
-                      SaveMockItemsRow(
-                        modifier   = Modifier.padding(horizontal = 16.dp),
-                        body       = response.body,
-                        setBody    = null,
-                        setBodyErr = null,
-                        path       = req.path!!
-                      )
-                    }
                   }
-                else
-                  ResponseForm(id, req.path!!)
+                }
               }
             }
           }
         }
+      }
+    }
+  }
+}
+
+@Composable
+fun RequestHistory(records: SnapshotStateList<UUID>) {
+  val lazyListState = rememberLazyListState()
+
+  // TODO
+//  LaunchedEffect(requests.lastOrNull()) {
+//    println(requests.size)
+//    if(requests.isNotEmpty())
+//      lazyListState.animateScrollToItem(requests.indices.last)
+//  }
+
+  LazyColumn(M.background(Color.White), reverseLayout = true, state = lazyListState) {
+    itemsIndexed(records) { index, id ->
+      val isSelected = (id == selectedRequest.value)
+      Row(verticalAlignment = Alignment.CenterVertically, modifier = M
+        .fillParentMaxWidth()
+        .background(when {
+          isSelected     -> BlueLight
+          index % 2 == 1 -> C.surface
+          else           -> C.background
+        })
+        .clickable { selectedRequest.value = id }
+        .padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(M.width(40.dp)) {
+          when(val response = responses[id]) {
+            null -> Icon(
+              modifier = M.size(22.dp).clickable { sendRealResponse(id) },
+              imageVector         = Icons.Rounded.Send,
+              tint                = C.onBackground,
+              contentDescription  = "")
+
+            is Loading -> Text(
+              text  = "...",
+              color = C.onBackground,
+              style = T.body2)
+
+            is SentResponse -> Text(
+              text  = response.status.toString(),
+              color = C.onBackground,
+              style = T.body2)
+          }
+        }
+        val request = requests[id]!!
+        Text(
+          modifier = M.width(50.dp),
+          text     = request.request.method.toString(),
+          color    = C.onBackground,
+          style    = T.body2)
+        Text(
+          text  = request.request.path!!,
+          style = T.body2)
       }
     }
   }
@@ -340,19 +306,19 @@ fun ResponseForm(id: UUID, path: String) {
       color     = MaterialTheme.colors.primary,
       thickness = 1.dp)
 
-    DogTitleText(text = "Response codes")
+    DogTitleText(text = "Send response with code")
 
     Row(M.padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
       codes.forEach { code ->
-        Button(onClick  = { sendResponse(id, code, body) }) {
+        Button(onClick  = { sendMockResponse(id, code, body) }) {
           Text(modifier = M.padding(horizontal = 16.dp), text = "$code")
         }
       }
       Button(onClick  = {
-        sendRealShit(id)
-        updateRecord(id) { copy(wasReal = true) }
+        sendRealResponse(id)
+        // TODO updateRecord(id) { copy(wasReal = true) }
       }) {
-        Text(modifier = M.padding(horizontal = 16.dp), text = "REAL SHIT")
+        Text(modifier = M.padding(horizontal = 16.dp), text = "REAL")
       }
     }
   }
@@ -430,22 +396,6 @@ fun ErrorText(text: String) {
 
 @Composable
 fun ThrottleRequestSimulation(modifier: Modifier) {
-  ThrottleItem(modifier)
-}
-
-/*@Composable
-fun DelayRequestSimulation(modifier: Modifier) {
-  val (period, setPeriod) = mutable<Float?>(null)
-  val time = period?.toLong()
-
-  time?.let { timeInMilis.value = it }
-
-  DogBodyText(modifier, "Delay request: ${if (time == null) "0 milis" else "$time milis"}")
-  DogSlider(modifier, period, setPeriod)
-}*/
-
-@Composable
-fun ThrottleItem(modifier: Modifier) {
   val (bytes, setBytes)   = mutable(0f)
   val (period, setPeriod) = mutable(0f)
   val data = bytes.toLong()
@@ -468,8 +418,7 @@ fun DogSlider(modifier: Modifier, value: Float?, setValue: (Float) -> Unit) {
     value         = value ?: 0.0f,
     onValueChange = setValue,
     valueRange    = 0f..100f,
-    steps         = 99
-  )
+    steps         = 99)
 }
 
 @Composable
@@ -477,8 +426,74 @@ fun DogBodyText(modifier: Modifier, text: String) {
   Text(
     modifier = modifier,
     style    = T.body2,
-    text     = text
-  )
+    text     = text)
+}
+
+@Composable
+fun LeftPane() {
+  val snackbar = remember { SnackbarHostState() }
+  val scope    = rememberCoroutineScope()
+
+  Column(M.width(listWidth.value).fillMaxHeight().background(Color.White)) {
+    LeftPaneRow("Mock responses", catchEnabled.value) { catchEnabled.value = catchEnabled.value.not() }
+    LeftPaneRow("Throttle requests", throttleCheckbox.value) { throttleCheckbox.value = throttleCheckbox.value.not() }
+    if (throttleCheckbox.value) ThrottleRequestSimulation(modifier = M.padding(horizontal = 16.dp).width(listWidth.value))
+    LeftPaneRow("Test on device", deviceCheckbox.value) { deviceCheckbox.value = deviceCheckbox.value.not() }
+
+    if (deviceCheckbox.value) {
+      val (ip, setIp)       = mutable("")
+      val (ipErr, setIpErr) = mutable(false)
+
+      if(ipErr) { ErrorText("Zadaj validnú IP") }
+
+      Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = M.width(listWidth.value).padding(horizontal = 16.dp)
+      ) {
+        OutlinedTextField(
+          maxLines      = 1,
+          label         = { Text("Zadaj IP", M.padding(top = 4.dp)) },
+          colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
+          isError       = ipErr,
+          value         = ip,
+          onValueChange = { setIp(it); setIpErr(false) })
+
+        Button(
+          modifier = M.padding(top = 10.dp),
+          onClick  = {
+            when {
+              ip.isBlank()                   -> setIpErr(true)
+              records.size != responses.size -> scope.launch { snackbar.showSnackbar("Set responses to all requests") }
+              else -> {
+                server.shutdown()
+                server = MockWebServer()
+                // TODO restart serverLogic(server)
+                server.start(inetAddress = InetAddress.getByName(ip), port = 52242)
+                submitted.value = true
+                scope.launch { snackbar.showSnackbar("Device mode") }
+              }
+            }
+          }
+        ) { Text(modifier = M.padding(horizontal = 16.dp), text = "Submit") }
+      }
+    } else if (submitted.value) {
+
+      if (records.size != responses.size) {
+        deviceCheckbox.value = true
+        scope.launch { snackbar.showSnackbar("Set responses to all requests") }
+      } else {
+        server.shutdown()
+        server = MockWebServer()
+        // TODO restart serverLogic(server)
+        server.start(port = 52242)
+        submitted.value = false
+        scope.launch { snackbar.showSnackbar("Emulator mode") }
+      }
+    }
+
+    SnackbarHost(snackbar)
+    RequestHistory(records)
+  }
 }
 
 @Composable
@@ -490,14 +505,6 @@ fun LeftPaneRow(text: String, check: Boolean, onCheck: (Boolean) -> Unit) {
     Text(modifier = M.padding(start = 16.dp), style = T.body2, text = text)
     Checkbox(checked = check, onCheckedChange = onCheck)
   }
-}
-
-private fun isRequestOpen(requests: SnapshotStateList<Record>): Boolean {
-  var isOpen = false
-  requests.forEach { req ->
-    if (req.response == null) isOpen = true
-  }
-  return isOpen
 }
 
 @Composable fun <A> mutable(init: A) = remember { mutableStateOf(init) }
