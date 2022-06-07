@@ -30,6 +30,7 @@ fun sendRealRequest(record: Request): SentResponse {
         "GET"   -> get()
         "PUT"   -> put(body)
         "PATCH" -> patch(body)
+        "DELETE"-> delete(body)
         else    -> post(body)
       }
     }
