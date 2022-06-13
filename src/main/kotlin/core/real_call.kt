@@ -32,7 +32,7 @@ fun sendRealRequest(record: Request): SentResponse {
         "GET"   -> get()
         "PUT"   -> put(body)
         "PATCH" -> patch(body)
-        // TODO kdeeee? je? DELETE??? kurna
+        "DELETE"-> delete(body)
         else    -> post(body)
       }
     }
