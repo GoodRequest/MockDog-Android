@@ -22,8 +22,8 @@ import theme.*
 import java.net.InetAddress
 import java.util.UUID
 
-private val submitted         = mutableStateOf(false) // TODO co to?
-private val deviceCheckbox    = mutableStateOf(false)
+//private val submitted         = mutableStateOf(false) // TODO co to?
+//private val deviceCheckbox    = mutableStateOf(false)
 private val throttleCheckbox  = mutableStateOf(false)
 
 @Composable
@@ -39,53 +39,53 @@ fun LeftPane(listWidth: Dp, selected: UUID?, onSelect: (UUID) -> Unit) {
 
     Divider(M.height(1.dp).padding(horizontal = 16.dp))
     LeftPaneRow("Mock responses", catchEnabled.value) { catchEnabled.value = catchEnabled.value.not() }
-    LeftPaneRow("Test on device", deviceCheckbox.value) { deviceCheckbox.value = deviceCheckbox.value.not() }
+   // LeftPaneRow("Test on device", deviceCheckbox.value) { deviceCheckbox.value = deviceCheckbox.value.not() }
     LeftPaneRow("Throttle requests", throttleCheckbox.value) { throttleCheckbox.value = throttleCheckbox.value.not() }
     if (throttleCheckbox.value) ThrottleRequestSimulation(modifier = M.padding(horizontal = 16.dp).width(listWidth))
 
-    if (deviceCheckbox.value) {
-      val (ip, setIp)       = mutable("")
-      val (ipErr, setIpErr) = mutable(false)
-
-      if(ipErr) { ErrorText("Zadaj validnú IP") }
-
-      Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = M.width(listWidth).padding(horizontal = 16.dp)
-      ) {
-        OutlinedTextField(
-          maxLines      = 1,
-          label         = { Text("Zadaj IP", M.padding(top = 4.dp)) },
-          colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
-          isError       = ipErr,
-          value         = ip,
-          onValueChange = { setIp(it); setIpErr(false) })
-
-        Button(
-          modifier = M.padding(top = 10.dp),
-          onClick  = {
-            when {
-              ip.isBlank()                    -> setIpErr(true)
-              requests.size != responses.size -> scope.launch { snackbar.showSnackbar("Set responses to all requests") }
-              else -> {
-                startServer(inetAddress = InetAddress.getByName(ip), port = 52242)
-                submitted.value = true
-                scope.launch { snackbar.showSnackbar("Device mode") }
-              }
-            }
-          }
-        ) { Text(modifier = M.padding(horizontal = 16.dp), text = "Submit") }
-      }
-    } else if (submitted.value) {
-      if (requests.size != responses.size) {
-        deviceCheckbox.value = true
-        scope.launch { snackbar.showSnackbar("Set responses to all requests") }
-      } else {
-        startServer()
-        submitted.value = false
-        scope.launch { snackbar.showSnackbar("Emulator mode") }
-      }
-    }
+//    if (deviceCheckbox.value) {
+//      val (ip, setIp)       = mutable("")
+//      val (ipErr, setIpErr) = mutable(false)
+//
+//      if(ipErr) { ErrorText("Zadaj validnú IP") }
+//
+//      Column(
+//        horizontalAlignment = Alignment.CenterHorizontally,
+//        modifier = M.width(listWidth).padding(horizontal = 16.dp)
+//      ) {
+//        OutlinedTextField(
+//          maxLines      = 1,
+//          label         = { Text("Zadaj IP", M.padding(top = 4.dp)) },
+//          colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
+//          isError       = ipErr,
+//          value         = ip,
+//          onValueChange = { setIp(it); setIpErr(false) })
+//
+//        Button(
+//          modifier = M.padding(top = 10.dp),
+//          onClick  = {
+//            when {
+//              ip.isBlank()                    -> setIpErr(true)
+//              requests.size != responses.size -> scope.launch { snackbar.showSnackbar("Set responses to all requests") }
+//              else -> {
+//                startServer(inetAddress = InetAddress.getByName(ip), port = 52242)
+//                submitted.value = true
+//                scope.launch { snackbar.showSnackbar("Device mode") }
+//              }
+//            }
+//          }
+//        ) { Text(modifier = M.padding(horizontal = 16.dp), text = "Submit") }
+//      }
+//    } else if (submitted.value) {
+//      if (requests.size != responses.size) {
+//        deviceCheckbox.value = true
+//        scope.launch { snackbar.showSnackbar("Set responses to all requests") }
+//      } else {
+//        startServer()
+//        submitted.value = false
+//        scope.launch { snackbar.showSnackbar("Emulator mode") }
+//      }
+//    }
 
     SnackbarHost(snackbar)
   }

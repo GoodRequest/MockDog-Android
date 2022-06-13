@@ -35,7 +35,7 @@ import java.util.UUID
 
 private val listWidth         = mutableStateOf(400.dp)
 private val selectedRequest   = mutableStateOf<UUID?>(null)
-private val collapsedRequest  = mutableStateMapOf<UUID, Unit>()
+private val expandedRequest   = mutableStateMapOf<UUID, Unit>()
 private val collapsedResponse = mutableStateMapOf<UUID, Unit>()
 
 private fun SnapshotStateMap<UUID, Unit>.toggle(key: UUID) = if (containsKey(key)) remove(key) else put(key, Unit)
@@ -63,7 +63,7 @@ fun App() {
         selectedRequest.value?.let { id ->
           val (_, request, body)  = requests.firstOrNull { it.id == id }!!
           val response            = responses[id]
-          val isCollapsedRequest  = collapsedRequest[id]  != null
+          val isCollapsedRequest  = expandedRequest[id]  == null
           val isCollapsedResponse = collapsedResponse[id] != null
 
           Column(M.padding(16.dp).verticalScroll(rememberScrollState())) {
@@ -80,7 +80,7 @@ fun App() {
                   modifier = M
                     .size(30.dp)
                     .rotate(isCollapsedRequest(270f, 0f))
-                    .clickable { collapsedRequest.toggle(id) },
+                    .clickable { expandedRequest.toggle(id) },
                   imageVector        = Icons.Default.ArrowDropDown,
                   contentDescription = "")
                 Text("Request", style = T.caption)
@@ -136,11 +136,11 @@ fun App() {
 
                       val (isFormatted, setFormatted) = remember { mutableStateOf(false) }
 
-                      // TODO ak to nie je json tak ani neponukat moznost
-                      Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(isFormatted, setFormatted)
-                        Text("Format JSON", fontSize = 12.sp, color = C.onSurface.copy(alpha = 0.6f))
-                      }
+                      if(response.headers.values("content-type").any { it.contains("application/json", ignoreCase = true) })
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                          Checkbox(isFormatted, setFormatted)
+                          Text("Format JSON", fontSize = 12.sp, color = C.onSurface.copy(alpha = 0.6f))
+                        }
 
                       if(isFormatted) {
                         val parsed = try { JsonParser.parseString(response.body) } catch (e: java.lang.Exception) {

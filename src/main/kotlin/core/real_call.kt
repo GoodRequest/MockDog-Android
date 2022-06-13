@@ -8,8 +8,10 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
+import okio.BufferedSource
 import okio.buffer
 import okio.gzip
+import java.net.InetAddress
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTimedValue
 
@@ -30,6 +32,7 @@ fun sendRealRequest(record: Request): SentResponse {
         "GET"   -> get()
         "PUT"   -> put(body)
         "PATCH" -> patch(body)
+        // TODO kdeeee? je? DELETE??? kurna
         else    -> post(body)
       }
     }
@@ -44,7 +47,16 @@ fun sendRealRequest(record: Request): SentResponse {
         status   = it.code,
         duration = realResponse.duration.inWholeMilliseconds,
         headers  = Headers.Builder().apply { it.headers.filter { it.first != "content-encoding" }.forEach { add(it.first, it.second) } }.build(),
-        body     = it.body!!.source().run { if(it.headers["content-encoding"]?.contains("gzip") == true) gzip() else this }.buffer().readUtf8()) // TODO moze toto padnut? Closuje sa ten source?
+        body     = try {
+          it.body!!.source().run {
+            if(it.headers["content-encoding"]?.contains("gzip") == true)
+              gzip()
+            else
+              this
+          }.buffer().use(BufferedSource::readUtf8)
+        } catch (e: Exception) {
+          "Crash!\n" + e.printStackTrace()
+        })
     },
     onFailure = {
       SentResponse(
@@ -57,3 +69,12 @@ fun sendRealRequest(record: Request): SentResponse {
 
 private fun request(url: HttpUrl, headers: Headers, config: OkRequest.Builder.() -> OkRequest.Builder) =
   OkRequest.Builder().url(url).headers(headers).config().build()
+
+fun main() {
+  println(InetAddress.getByName("localhost").canonicalHostName)
+  println(InetAddress.getLocalHost().canonicalHostName)
+
+  println(InetAddress.getByName("localhost"))
+ // println(InetAddress.getByName(null))
+  println(InetAddress.getLocalHost())
+}

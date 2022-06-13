@@ -41,7 +41,9 @@ val responses = mutableStateMapOf<UUID, Response>()
 private val queues = ConcurrentHashMap<UUID, BlockingQueue<Response>>()
 private var server: MockWebServer? = null
 
+// https://stackoverflow.com/questions/34037491/how-to-use-ssl-in-square-mockwebserver
 fun startServer(port: Int = 52242, inetAddress: InetAddress = InetAddress.getByName("localhost")) {
+  println(inetAddress.canonicalHostName)
   server?.shutdown()
   server = MockWebServer().apply {
     dispatcher = object : Dispatcher() {
