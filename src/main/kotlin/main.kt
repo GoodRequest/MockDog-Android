@@ -7,10 +7,16 @@ import androidx.compose.ui.window.rememberWindowState
 import core.loadMocks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import mockdog.*
+import mockdog.App
+import mockdog.addAndStartServer
+import java.net.Inet4Address
+import java.net.InetAddress
+import java.net.NetworkInterface
+import java.util.*
+
 
 fun main() {
-  startServer()
+  addAndStartServer(inetAddress = InetAddress.getLocalHost())
 
   application {
     LaunchedEffect(key1 = Unit) { withContext(Dispatchers.IO) { loadMocks() } }

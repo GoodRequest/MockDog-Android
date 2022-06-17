@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
@@ -59,6 +60,7 @@ fun App() {
           .fillMaxHeight()
           .background(Color.Black.copy(alpha = 0.2f))
           .draggable(rememberDraggableState { delta -> listWidth.value += with(dpi) { delta.toDp() } }, Orientation.Horizontal))
+
         // detail
         selectedRequest.value?.let { id ->
           val (_, request, body)  = requests.firstOrNull { it.id == id }!!
@@ -90,11 +92,28 @@ fun App() {
                 Column {
                   HeadersTable(request.headers)
                   if (body.isNotBlank()) {
-                    SelectionContainer {
-                      Text(
-                        modifier = M.padding(16.dp),
-                        fontSize = 14.sp,
-                        text     = body)
+                    val (isFormatted, setFormatted) = remember { mutableStateOf(false) }
+
+                    if(request.headers.values("content-type").any { it.contains("application/json", ignoreCase = true) })
+                      Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(isFormatted, setFormatted)
+                        Text("Format JSON", fontSize = 12.sp, color = C.onSurface.copy(alpha = 0.6f))
+                      }
+
+                    if(isFormatted) {
+                      val parsed = try { JsonParser.parseString(body) } catch (e: java.lang.Exception) {
+                        e.printStackTrace()
+                        JsonParser.parseString("{}")
+                      } // TODO performance
+                      val collapsed = remember { mutableStateListOf<String>() }
+                      JsonTree(parsed, null, "", collapsed, {})
+                    } else {
+                      SelectionContainer {
+                        Text(
+                          modifier = M.padding(16.dp),
+                          fontSize = 14.sp,
+                          text     = body)
+                      }
                     }
                   }
                 }
@@ -172,6 +191,7 @@ fun App() {
             }
           }
         }
+        Dialog()
       }
     }
   }
@@ -331,6 +351,40 @@ fun ErrorText(text: String) {
     color    = C.error,
     style    = T.caption,
     modifier = M.padding(start = 16.dp, top = 4.dp))
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+fun Dialog() {
+  if (errorDialog.value.first) {
+    AlertDialog(
+      onDismissRequest = {
+        // Dismiss the dialog when the user clicks outside the dialog or on the back
+        // button. If you want to disable that functionality, simply use an empty
+        // onCloseRequest.
+        errorDialog.value = Pair(false, "")
+      },
+      title = {
+        Row {
+          Icon(imageVector = Icons.Default.Warning, contentDescription = null,modifier = M.padding(end = 8.dp))
+          Text(text = "Error")
+        }
+
+      },
+      text = {
+        Text(errorDialog.value.second)
+      },
+      modifier = M.defaultMinSize(300.dp),
+      confirmButton = {
+        Button(
+          onClick = {
+            errorDialog.value = Pair(false, "")
+          }) {
+          Text("Ok!")
+        }
+      })
+  }
+
 }
 
 @Composable fun <A> mutable(init: A) = remember { mutableStateOf(init) }
