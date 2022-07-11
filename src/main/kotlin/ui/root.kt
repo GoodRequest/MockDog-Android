@@ -19,11 +19,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.*
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.AwtWindow
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
 import core.*
@@ -32,17 +36,26 @@ import okhttp3.mockwebserver.MockResponse
 import theme.*
 import ui.LeftPane
 import ui.json.JsonTree
-import java.util.UUID
+import java.awt.Cursor
+import java.awt.FileDialog
+import java.awt.Frame
+import java.io.File
+import java.util.*
+import javax.swing.JFileChooser
+import javax.swing.filechooser.FileNameExtensionFilter
+import javax.swing.filechooser.FileSystemView
 
 private val listWidth         = mutableStateOf(400.dp)
 private val selectedRequest   = mutableStateOf<UUID?>(null)
 private val expandedRequest   = mutableStateMapOf<UUID, Unit>()
 private val collapsedResponse = mutableStateMapOf<UUID, Unit>()
+private val mockDir           = mutableStateOf("")
 
 private fun SnapshotStateMap<UUID, Unit>.toggle(key: UUID) = if (containsKey(key)) remove(key) else put(key, Unit)
 
 @Composable
 fun App() {
+  mockDir.value = File("mocks/saveDir.txt").readText()
   MaterialTheme(
     colors     = ColorPalette,
     typography = TypographyTypes
@@ -245,7 +258,7 @@ fun ResponseForm(id: UUID, path: String) {
                 textDecoration = TextDecoration.Underline)) {
                 append(file.substringAfterLast("_"))
               } },
-              onClick = { setBody(readFile(file)) })
+              onClick = { setBody(readFile(name = file)) })
           }
         }
       }
@@ -294,45 +307,79 @@ fun SaveMockItemsRow(
   setBodyErr: ((Boolean) -> Unit)?,
   path      : String
 ) {
+
   val (name, setName)       = mutable("")
   val (nameErr, setNameErr) = mutable(false)
+  Column() {
 
-  Row(
-    modifier = modifier.padding(bottom = 16.dp),
-    horizontalArrangement = Arrangement.spacedBy(16.dp),
-    verticalAlignment     = Alignment.Top
-  ) {
-    Column {
-      TextField(
-        modifier      = M.height(54.dp).width(200.dp),
-        maxLines      = 1,
-        label         = { Text("name of response", M.padding(top = 4.dp), style = T.caption) },
-        colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = Color.White),
-        isError       = nameErr,
-        value         = name,
-        onValueChange = { setName(it); setNameErr(false) })
 
-      if(nameErr) { ErrorText("enter mock name:") }
-    }
-
-    Button(
-      onClick = {
-        when {
-          name.isEmpty() || body.isEmpty() -> {
-            if (name.isEmpty()) setNameErr(true)
-            if (body.isEmpty() && setBodyErr != null) setBodyErr(true)
-          }
-          else -> {
-            saveFile(path, name, body)
-            setName("")
-            setBody?.invoke("")
-          }
-        }
-      },
-      modifier = M.padding(top = 10.dp)
+    Row(
+      modifier = modifier.padding(bottom = 16.dp),
+      horizontalArrangement = Arrangement.spacedBy(16.dp),
+      verticalAlignment = Alignment.Top
     ) {
-      Text(modifier = M.padding(horizontal = 16.dp), text = "SAVE")
+      Column {
+        TextField(
+          modifier = M.height(54.dp).width(200.dp),
+          maxLines = 1,
+          label = { Text("name of response", M.padding(top = 4.dp), style = T.caption) },
+          colors = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = Color.White),
+          isError = nameErr,
+          value = name,
+          onValueChange = { setName(it); setNameErr(false) })
+
+        if (nameErr) {
+          ErrorText("enter mock name:")
+        }
+      }
+
+      Button(
+        onClick = {
+          when {
+            name.isEmpty() || body.isEmpty() -> {
+              if (name.isEmpty()) setNameErr(true)
+              if (body.isEmpty() && setBodyErr != null) setBodyErr(true)
+            }
+            else -> {
+              saveFile(path, name, body)
+              setName("")
+              setBody?.invoke("")
+            }
+          }
+        },
+        modifier = M.padding(top = 10.dp)
+      ) {
+        Text(modifier = M.padding(horizontal = 16.dp), text = "SAVE")
+      }
     }
+    ClickableText(
+      modifier = M.padding(horizontal = 16.dp).padding(bottom = 32.dp).pointerHoverIcon(icon = PointerIcon(Cursor.getPredefinedCursor(12))),
+      maxLines = 1,
+      text = buildAnnotatedString {
+        append("Response save directory: ")
+        withStyle(style = SpanStyle(color = Color.Blue, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+          append(mockDir.value)
+        }
+      } ,
+      onClick = {
+
+        // https://github.com/JetBrains/compose-jb/issues/1003
+        val fileChooser = JFileChooser(FileSystemView.getFileSystemView())
+        fileChooser.currentDirectory = File(System.getProperty("user.dir"))
+        fileChooser.dialogTitle = "Choose directory"
+        fileChooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+        fileChooser.isAcceptAllFileFilterUsed = true
+        fileChooser.selectedFile = null
+        fileChooser.currentDirectory = File(mockDir.value)
+        if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+          val file = fileChooser.selectedFile
+
+          mockDir.value = file.absolutePath
+          File("mocks/saveDir.txt").writeText(file.absolutePath)
+          loadMocks()
+        }
+      }
+    )
   }
 }
 
@@ -386,6 +433,49 @@ fun Dialog() {
   }
 
 }
+
+@Composable
+fun openFilePicker(){
+  val text = remember { mutableStateOf("Hello, World!") }
+  val isFileChooserOpen = remember { mutableStateOf(false) }
+  if (isFileChooserOpen.value) {
+    FileDialog(
+
+      onCloseRequest = {
+        isFileChooserOpen.value = false
+        println("Result $it")
+      }
+    )
+  }
+  MaterialTheme {
+    Button(onClick = {
+      isFileChooserOpen.value = true
+    }) {
+      Text(text.value)
+    }
+  }
+
+
+
+}
+
+@Composable
+private fun FileDialog(
+  parent: Frame? = null,
+  onCloseRequest: (result: String?) -> Unit
+) = AwtWindow(
+  create = {
+    object : FileDialog(parent, "Choose a file", LOAD) {
+      override fun setVisible(value: Boolean) {
+        super.setVisible(value)
+        if (value) {
+          onCloseRequest(file)
+        }
+      }
+    }
+  },
+  dispose = FileDialog::dispose
+)
 
 @Composable fun <A> mutable(init: A) = remember { mutableStateOf(init) }
 operator fun <A> Boolean.invoke(ifTrue: A, ifFalse: A) = if(this) ifTrue else ifFalse
