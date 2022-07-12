@@ -190,7 +190,7 @@ fun App() {
                         }
                       }
 
-                      if (response.duration != 0L) // is not mock
+                      //if (response.duration != 0L) // is not mock
                         SaveMockItemsRow(
                           modifier   = M.padding(horizontal = 16.dp),
                           body       = response.body,
