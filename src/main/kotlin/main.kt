@@ -17,7 +17,7 @@ import java.net.InetAddress
 
 
 fun main() {
-  addAndStartServer(inetAddress = InetAddress.getLocalHost())
+  addAndStartServer()
   try{
     File("mocks/saveDir.txt").readText()
   } catch (e: Exception){
