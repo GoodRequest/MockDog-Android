@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontWeight
@@ -155,6 +156,10 @@ fun App() {
                   is SentResponse -> {
                     Column {
                       // Status code + url
+                      val clipboardManager = LocalClipboardManager.current
+                      Button({clipboardManager.setText(buildAnnotatedString { append(response.body) })}) {
+                        Text("Copy Response 🤯")
+                      }
                       Text(
                         modifier = M.padding(start = 16.dp, end = 16.dp, top = 16.dp),
                         text     = MockResponse().setResponseCode(response.status).status + " (${response.duration}ms)")
@@ -172,6 +177,7 @@ fun App() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                           Checkbox(isFormatted, setFormatted)
                           Text("Format JSON", fontSize = 12.sp, color = C.onSurface.copy(alpha = 0.6f))
+
                         }
 
                       if(isFormatted) {
