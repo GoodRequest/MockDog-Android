@@ -35,7 +35,23 @@ fun LeftPane(listWidth: Dp, selected: UUID?, onSelect: (UUID) -> Unit) {
 
     Column(M.width(listWidth).fillMaxHeight().background(Color.White)) {
         Column(M.weight(1f)) {
-            Text(modifier = M.padding(16.dp), text = "History", style = T.subtitle1)
+            Row(
+                modifier = M.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(modifier = M.padding(16.dp),text = "History", style = T.subtitle1)
+                if (requests.isNotEmpty())
+                    Button(
+                        modifier = M.padding(end = 16.dp),
+                        onClick = {
+                            requests.clear()
+                        }
+                    ){
+                        Text(text = "Clear History")
+                    }
+            }
+
             RequestHistory(requests, selected, onSelect)
         }
 
@@ -109,6 +125,8 @@ fun RequestHistory(requests: SnapshotStateList<Request>, selected: UUID?, onSele
 
     if (requests.isEmpty())
         Text("no requests yet", M.padding(horizontal = 16.dp))
+
+
 
     LazyColumn(M.background(Color.White), reverseLayout = true, state = lazyListState) {
         itemsIndexed(requests) { index, request ->
