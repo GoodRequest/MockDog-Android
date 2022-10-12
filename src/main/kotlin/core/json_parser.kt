@@ -1,4 +1,4 @@
-package common.core
+package core
 
 import com.google.gson.*
 import com.google.gson.stream.*

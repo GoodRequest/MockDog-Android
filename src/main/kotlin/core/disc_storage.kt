@@ -19,17 +19,15 @@ fun saveFile(path: String, name: String, body: String) = try { // TODO nefunguje
   e.printStackTrace()
 }
 
-fun readFile(name: String): String =
-  try {
-    File("${folder}/$name.txt").readText()
-  } catch (e: Exception) {
-    e.printStackTrace()
-    "error reading file"
-  }
+fun readFile(name: String): String? = try {
+  File("${folder}/$name.txt").readText()
+} catch (e: Exception) {
+  e.printStackTrace()
+  null
+}
 
-fun loadMocks() =
-  try {
-    mockFiles.value = mockFiles.value + File(folder).listFiles().map { it.name.substringBefore(".txt") }
-  } catch (e: Throwable) {
-    e.printStackTrace()
-  }
+fun loadMocks() = try {
+  mockFiles.value = mockFiles.value + File(folder).listFiles().map { it.name.substringBefore(".txt") }
+} catch (e: Throwable) {
+  e.printStackTrace()
+}

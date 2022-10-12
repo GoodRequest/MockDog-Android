@@ -1,6 +1,5 @@
 package core
 
-import mockdog.*
 import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.Request as OkRequest
@@ -11,7 +10,6 @@ import okhttp3.logging.HttpLoggingInterceptor
 import okio.BufferedSource
 import okio.buffer
 import okio.gzip
-import java.net.InetAddress
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTimedValue
 
@@ -69,12 +67,3 @@ fun sendRealRequest(record: Request): SentResponse {
 
 private fun request(url: HttpUrl, headers: Headers, config: OkRequest.Builder.() -> OkRequest.Builder) =
   OkRequest.Builder().url(url).headers(headers).config().build()
-
-fun main() {
-  println(InetAddress.getByName("localhost").canonicalHostName)
-  println(InetAddress.getLocalHost().canonicalHostName)
-
-  println(InetAddress.getByName("localhost"))
- // println(InetAddress.getByName(null))
-  println(InetAddress.getLocalHost())
-}

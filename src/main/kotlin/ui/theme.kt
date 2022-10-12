@@ -1,4 +1,4 @@
-package theme
+package ui
 
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Typography
@@ -18,30 +18,22 @@ val SH @Composable get() = MaterialTheme.shapes
 val PrimeBlack         = Color(0xFF05141F)
 val PrimeBlackVariant  = Color(0xFF37434C)
 val GreyLight          = Color(0xFFF0F1F2)
-val GreyLight2         = Color(0xFFF1F2F3)
 val GreyDark           = Color(0xFF121212)
-val GreyDark2          = Color(0xFF1E2C35)
-val Yellow             = Color(0xFFF3C300)
-val YellowVariant      = Color(0xFFF8DC79)
 val Red                = Color(0xFFEA0029)
 val Black              = Color(0xFF000000)
 val White              = Color(0xFFFFFFFF)
-val GreenLight         = Color(0xFFDBF4E0)
 val BlueLight          = Color(0xFFE0F2FE)
-val YellowLight        = Color(0xFFFFF5D3)
-val VioletLight        = Color(0xFFEDE9FE)
-val IconGreen          = Color(0xFF16A34A)
-val IconBlue           = Color(0xFF3B82F6)
-val IconYellow         = Color(0xFFCA8A04)
-val VioletDark         = Color(0xFF8B5CF6)
+val Blue               = Color(0xFF3B82F6)
+val Green              = Color(0xFF66BB6A)
+val Orange             = Color(0xFFFFC107)
 
-val ColorPalette = lightColors(
+val Palette = lightColors(
   primary          = PrimeBlack,
   primaryVariant   = PrimeBlackVariant,
   secondary        = PrimeBlack,
-  secondaryVariant = YellowVariant,
-  background       = White,
-  surface          = GreyLight,
+  secondaryVariant = PrimeBlackVariant,
+  background       = GreyLight,
+  surface          = White,
   error            = Red,
   onPrimary        = White,
   onSecondary      = PrimeBlack,
@@ -50,8 +42,7 @@ val ColorPalette = lightColors(
   onError          = White
 )
 
-val TypographyTypes = Typography(
- // defaultFontFamily = Inter,
+val Typography = Typography(
   h1 = TextStyle(
     fontWeight    = FontWeight.Bold,
     fontSize      = 96.sp,

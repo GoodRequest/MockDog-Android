@@ -1,8 +1,6 @@
-package ui.json
+package ui
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.Icon
@@ -18,41 +16,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.JsonElement
-import theme.IconBlue
-import theme.PrimeBlack
-
-//val example = """
-//    {"menu": {
-//      "id": "file",
-//      "value": "File",
-//      "popup": {
-//        "menuitem": [
-//          {"value": "New", "onclick": "CreateNewDoc()"},
-//          {"value": "Open", "onclick": "OpenDoc()"},
-//          {"value": "Close", "onclick": "CloseDoc()"}
-//        ]
-//      }
-//    }}
-//"""
-//
-//
-//@Composable
-//fun JsonView() {
-//    val parsed = JsonParser.parseString(example)
-//    val collapsed = remember { mutableStateListOf<String>() }
-//
-//    JsonTree(parsed, null, "", collapsed)
-//}
-
-private val keyColor    = IconBlue
-private val bracesColor = PrimeBlack
-private val textSize    = 14.sp
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotStateList<String>, onKeySelected: (String) -> Unit) {
-  val offset = 16.dp
-  val fullPath = if(key != null) "$path/$key" else path
+  val keyColor    = Blue
+  val bracesColor = PrimeBlack
+  val textSize    = 14.sp
+  val offset      = 16.dp
+  val fullPath    = if(key != null) "$path/$key" else path
 
   when {
     root.isJsonArray -> {
@@ -74,7 +46,8 @@ fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotS
                 },
               imageVector         = Icons.Default.ArrowDropDown,
               contentDescription  = "Search",
-              tint                = keyColor)
+              tint                = keyColor
+            )
 
           if(fullPath in collapsed) {
             SelectionContainer {
@@ -102,7 +75,8 @@ fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotS
             modifier = Modifier.clickable { onKeySelected(fullPath) },
             text     = "$key: ",
             fontSize = textSize,
-            color    = keyColor)
+            color    = keyColor
+          )
 
           Text("{", color = bracesColor, fontSize = textSize)
 
@@ -122,7 +96,8 @@ fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotS
                   }),
               imageVector         = Icons.Default.ArrowDropDown,
               contentDescription  = "Search",
-              tint                = keyColor)
+              tint                = keyColor
+            )
 
           if(fullPath in collapsed) {
             SelectionContainer {
@@ -149,12 +124,13 @@ fun JsonTree(root: JsonElement, key: String?, path: String, collapsed: SnapshotS
           Text(
             text     = "$key: ",
             fontSize = textSize,
-            color    = keyColor)
+            color    = keyColor
+          )
           Text(
             text     = "$root",
-            // onValueChange = {},
             fontSize = textSize,
-            color    = PrimeBlack)
+            color    = PrimeBlack
+          )
         }
       }
     }
