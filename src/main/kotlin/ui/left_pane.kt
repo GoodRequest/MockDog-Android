@@ -154,11 +154,11 @@ private fun ThrottleSection() {
   ) {
     Text(
       style = T.body2,
-      text  = "Delay ${throttle.value ?: 0} ms")
+      text  = "Delay ${throttle.value ?: 0} ms after every 10 bytes")
     Slider(
       value         = throttle.value?.toFloat() ?: 0f,
-      onValueChange = { throttle.value = ((it.toLong() / 50) * 50) },
-      valueRange    = 0f..10_000f,
+      onValueChange = { throttle.value = it.toLong() },
+      valueRange    = 0f..1_000f,
       steps         = 200)
   }
 }

@@ -68,7 +68,7 @@ fun startServer(port: Int = 52242, inetAddress: InetAddress = InetAddress.getByN
         return MockResponse()
           .apply {
             val delay = throttle.value
-            if (delay != null) throttleBody(50, delay, TimeUnit.MILLISECONDS)
+            if (delay != null) throttleBody(10, delay, TimeUnit.MILLISECONDS)
           }
           .setResponseCode(response.status)
           .setHeaders(response.headers)
