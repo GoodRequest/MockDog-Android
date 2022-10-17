@@ -9,7 +9,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -36,10 +37,15 @@ fun LeftPane(
           modifier = M.padding(16.dp).weight(1f),
           text = "Request history",
           style = T.subtitle1)
+        if (requests.any { responses[it.id] == null }) {
+          IconButton(
+            onClick = { sendRealResponseAll() },
+            content = { Icon(Icons.Default.Send, contentDescription = null) })
+        }
         if (requests.isNotEmpty()) {
           IconButton(
             onClick = { requests.removeIf { responses[it.id] != null } },
-            content = { Icon(Icons.Outlined.Delete, contentDescription = null) })
+            content = { Icon(Icons.Default.Delete, contentDescription = null) })
         }
       }
       RequestHistory(

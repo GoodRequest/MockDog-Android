@@ -84,3 +84,9 @@ fun sendMockResponse(id: UUID, code: Int, body: String) =
 
 fun sendRealResponse(id: UUID) =
   queues[id]!!.put(Loading)
+
+fun sendRealResponseAll() = requests.forEach {
+  if (responses.contains(it.id).not()) {
+    queues[it.id]!!.put(Loading)
+  }
+}
