@@ -85,7 +85,7 @@ private fun getDefaultIpV4Address() = NetworkInterface.getNetworkInterfaces()
   .toList()
   .flatMap { it.inetAddresses.toList() }
   .filterIsInstance<Inet4Address>()
-  .firstOrNull { it.hostAddress != "/127.0.0.1" } ?: Inet4Address.getByName("127.0.0.1")
+  .firstOrNull { it.hostAddress != "127.0.0.1" } ?: Inet4Address.getByName("127.0.0.1")
 
 data class Throttle(val isEnabled: Boolean, val delay: Long)
 
