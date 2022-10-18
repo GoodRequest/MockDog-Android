@@ -31,15 +31,16 @@ compose.desktop {
         mainClass = "MainKt"
         nativeDistributions {
             macOS {
-                bundleID = "com.example-company.example-app"
+                bundleID = "com.goodrequest.android.mockdog"
                 signing {
                     sign.set(false)
                     identity.set("John Doe")
                 }
+                iconFile.set(project.file("src/main/kotlin/resources").resolve("icon_mac.icns"))
             }
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Exe)
-            packageName = "CatInTheMiddle"
-            packageVersion = "1.0.0"
+            packageName = "MockDog"
+            packageVersion = "1.1.0"
         }
     }
 }
