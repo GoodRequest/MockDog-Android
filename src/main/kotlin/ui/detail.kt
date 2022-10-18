@@ -25,7 +25,7 @@ import core.readFile
 import core.requests
 import core.responses
 import core.saveFile
-import core.savedMocksFor
+import core.getSavedMockFor
 import core.sendMockResponse
 import core.sendRealResponse
 import okhttp3.Headers
@@ -202,8 +202,7 @@ fun ResponseForm(id: UUID, path: String) {
   val (body, setBody) = mutable("")
 
   Column(modifier = M.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp)) {
-    val requestPath = path.substringBefore("?").replace("/", "_").replace("?", "_")
-    val savedMocks  = savedMocksFor(requestPath)
+    val savedMocks = getSavedMockFor(path)
 
     // Insert own JSON
     OutlinedTextField(
