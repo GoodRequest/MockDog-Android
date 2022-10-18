@@ -15,14 +15,11 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.*
 import java.util.UUID
-
-private val throttleCheckbox = mutableStateOf(false)
 
 @Composable
 fun LeftPane(
@@ -56,17 +53,20 @@ fun LeftPane(
     Divider(M.height(1.dp))
     LeftPaneRow(
       title     = "Mock responses",
-      check     = catchEnabled.value,
-      onChecked = { catchEnabled.value = catchEnabled.value.not() })
+      check     = mockingEnabled.value,
+      onChecked = { mockingEnabled.value = mockingEnabled.value.not() })
     LeftPaneRow(
       title     = "Throttle requests",
-      check     = throttleCheckbox.value,
+      check     = throttle.value.isEnabled,
+      onChecked = { throttle.value = throttle.value.copy(isEnabled = throttle.value.isEnabled.not()) })
+    AnimatedVisibility (throttle.value.isEnabled) { ThrottleSection() }
+    LeftPaneRow(
+      title     = "Use real device",
+      check     = useDevice.value,
       onChecked = {
-        throttleCheckbox.value = throttleCheckbox.value.not()
-        if (throttleCheckbox.value.not()) throttle.value = null else throttle.value = 0
+        useDevice.value = useDevice.value.not()
+        restartServer(useDevice.value)
       })
-
-    AnimatedVisibility (throttleCheckbox.value) { ThrottleSection() }
   }
 }
 
@@ -160,10 +160,10 @@ private fun ThrottleSection() {
   ) {
     Text(
       style = T.body2,
-      text  = "Delay ${throttle.value ?: 0} ms after every 10 bytes")
+      text  = "Delay ${throttle.value.delay} ms after every 10 bytes")
     Slider(
-      value         = throttle.value?.toFloat() ?: 0f,
-      onValueChange = { throttle.value = it.toLong() },
+      value         = throttle.value.delay.toFloat(),
+      onValueChange = { throttle.value = throttle.value.copy(delay = it.toLong()) },
       valueRange    = 0f..1_000f,
       steps         = 200)
   }

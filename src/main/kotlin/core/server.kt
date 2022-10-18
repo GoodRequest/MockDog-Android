@@ -4,7 +4,9 @@ import androidx.compose.runtime.*
 import okhttp3.*
 import okhttp3.mockwebserver.*
 import okhttp3.mockwebserver.Dispatcher
+import java.net.Inet4Address
 import java.net.InetAddress
+import java.net.NetworkInterface
 import java.util.UUID
 import java.util.concurrent.*
 
@@ -20,8 +22,9 @@ val responses = mutableStateMapOf<UUID, Response>()
 private val queues = ConcurrentHashMap<UUID, BlockingQueue<Response>>()
 private var server : MockWebServer? = null
 
-val catchEnabled   = mutableStateOf(true)
-val throttle       = mutableStateOf<Long?>(null)
+val mockingEnabled  = mutableStateOf(true)
+val throttle        = mutableStateOf(Throttle(isEnabled = false, delay = 0))
+val useDevice       = mutableStateOf(true)
 
 // "data" tu je iba kvoli copy metode. HashCode nefunguje dobre, bacha na to, nepouzivat!
 data class Request(
@@ -39,7 +42,7 @@ data class SentResponse(
   val duration : Long    = 0) : Response
 
 // https://stackoverflow.com/questions/34037491/how-to-use-ssl-in-square-mockwebserver
-fun startServer(port: Int = 52242, inetAddress: InetAddress = InetAddress.getByName("localhost")) {
+fun startServer(port: Int = 52242, inetAddress: InetAddress = getDefaultIpV4Address()) {
   server?.shutdown()
   server = MockWebServer().apply {
     dispatcher = object : Dispatcher() {
@@ -51,7 +54,7 @@ fun startServer(port: Int = 52242, inetAddress: InetAddress = InetAddress.getByN
 
         requests.add(request)
 
-        val response: SentResponse = if(catchEnabled.value) {
+        val response: SentResponse = if(mockingEnabled.value) {
           val value = queues.getOrPut(request.id) { ArrayBlockingQueue(1) }.take()
           if(value is SentResponse) {
             value
@@ -67,8 +70,7 @@ fun startServer(port: Int = 52242, inetAddress: InetAddress = InetAddress.getByN
 
         return MockResponse()
           .apply {
-            val delay = throttle.value
-            if (delay != null) throttleBody(10, delay, TimeUnit.MILLISECONDS)
+            if (throttle.value.isEnabled) throttleBody(10, throttle.value.delay, TimeUnit.MILLISECONDS)
           }
           .setResponseCode(response.status)
           .setHeaders(response.headers)
@@ -78,6 +80,14 @@ fun startServer(port: Int = 52242, inetAddress: InetAddress = InetAddress.getByN
     start(inetAddress, port)
   }
 }
+
+private fun getDefaultIpV4Address() = NetworkInterface.getNetworkInterfaces()
+  .toList()
+  .flatMap { it.inetAddresses.toList() }
+  .filterIsInstance<Inet4Address>()
+  .firstOrNull { it.hostAddress != "/127.0.0.1" } ?: Inet4Address.getByName("127.0.0.1")
+
+data class Throttle(val isEnabled: Boolean, val delay: Long)
 
 fun sendMockResponse(id: UUID, code: Int, body: String) =
   queues[id]!!.put(SentResponse(url = "Mock - Unknown url", status = code, body = body))
@@ -89,4 +99,9 @@ fun sendRealResponseAll() = requests.forEach {
   if (responses.contains(it.id).not()) {
     queues[it.id]!!.put(Loading)
   }
+}
+
+fun restartServer(useRealDevice: Boolean) {
+  server?.close()
+  startServer(inetAddress = if (useRealDevice) getDefaultIpV4Address() else InetAddress.getByName("localhost"))
 }
