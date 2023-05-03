@@ -2,6 +2,8 @@ package core
 
 import androidx.compose.runtime.mutableStateOf
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 // TODO tento file si zasluzi lasku
 
@@ -34,4 +36,23 @@ fun readFile(name: String): String? = try {
 } catch (e: Exception) {
   e.printStackTrace()
   null
+}
+
+fun saveUncaughtException(thread: Thread, throwable: Throwable) {
+  val exceptionFolder = File(folder, "UncaughtExceptions")
+  exceptionFolder.mkdir()
+
+  val date = Date()
+
+  val outputString = buildString {
+    appendLine("Created: $date")
+    appendLine()
+    appendLine("Throwable StackTrace: ")
+    appendLine(throwable.stackTraceToString())
+    appendLine()
+    appendLine("Thread StackTrace: ")
+    appendLine(thread.stackTrace.joinToString("\n"))
+  }
+
+  File("${exceptionFolder}/${SimpleDateFormat("d-MMM-HH_mm").format(date)}.txt").writeText(outputString)
 }

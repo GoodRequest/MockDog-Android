@@ -8,7 +8,7 @@ import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import core.mutable
-import java.util.UUID
+import java.util.*
 
 @Composable
 fun App() {

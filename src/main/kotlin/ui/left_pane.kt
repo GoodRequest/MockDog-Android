@@ -11,15 +11,16 @@ import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.Send
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.*
-import java.util.UUID
+import java.util.*
 
 @Composable
 fun LeftPane(
@@ -34,7 +35,7 @@ fun LeftPane(
           modifier = M.padding(16.dp).weight(1f),
           text = "Request history",
           style = T.subtitle1)
-        if (requests.any { responses[it.id] == null }) {
+        if (requests.any { responses[it.id] is EditResponse  || responses[it.id] == null }) {
           IconButton(
             onClick = { sendRealResponseAll() },
             content = { Icon(Icons.Default.Send, contentDescription = null) })
@@ -111,7 +112,7 @@ private fun RequestHistory(
           horizontalArrangement = Arrangement.Center
         ) {
           when(val response = responses[request.id]) {
-            null -> IconButton(
+            null, is EditResponse -> IconButton(
               onClick = { sendRealResponse(request.id) },
               content = { Icon(Icons.Rounded.Send, contentDescription = null) })
             is Loading      -> Text(text  = "...", style = T.body2)
