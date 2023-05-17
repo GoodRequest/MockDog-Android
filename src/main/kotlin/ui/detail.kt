@@ -13,26 +13,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.rememberDialogState
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
-import core.Loading
-import core.Response
-import core.SentResponse
-import core.mutable
-import core.readFile
-import core.requests
-import core.responses
-import core.saveFile
-import core.getSavedMockFor
-import core.sendMockResponse
-import core.sendRealResponse
+import core.*
 import okhttp3.Headers
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.RecordedRequest
-import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.*
 
+
+val prettyGson: Gson = GsonBuilder().setPrettyPrinting().create()
+var showSearch       by mutableStateOf(false)
 @Composable
 fun Detail(id : UUID) {
   val isExpandedRequest  = mutable(false)
@@ -47,21 +45,35 @@ fun Detail(id : UUID) {
       verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
       Text(
-        modifier = M.padding(bottom = 16.dp),
+        modifier = M.padding(bottom = 8.dp),
         text     = listOfNotNull(it.request.method, it.request.path).joinToString(" "),
         style    = T.subtitle1)
+      RequestTime(it.created)
       DetailRequest(
-        headers    = it.request.headers,
-        body       = it.body,
-        isExpanded = isExpandedRequest.value,
-        onClick    = { isExpandedRequest.value = isExpandedRequest.value.not() })
+        headers     = it.request.headers,
+        body        = it.body,
+        isExpanded  = isExpandedRequest.value,
+        onClick     = { isExpandedRequest.value = isExpandedRequest.value.not() })
       DetailResponse(
-        id         = it.id,
-        request    = it.request,
-        response   = response,
-        isExpanded = isExpandedResponse.value,
-        onClick    = { isExpandedResponse.value = isExpandedResponse.value.not() })
+        id          = it.id,
+        request     = it.request,
+        response    = response,
+        isExpanded  = isExpandedResponse.value,
+        onClick     = { isExpandedResponse.value = isExpandedResponse.value.not() })
     }
+  }
+}
+
+@Composable
+private fun RequestTime(created: Long) {
+  Column(M.padding(bottom = 8.dp)) {
+    val milliseconds = System.currentTimeMillis() - created
+    val seconds      = (milliseconds / 1000) % 60
+    val minutes      = (milliseconds / (1000 * 60) % 60)
+    val hours        = (milliseconds / (1000 * 60 * 60) % 24)
+
+    Text("Request created: ${SimpleDateFormat("d MMM, HH:mm:ss").format(Date(created))}")
+    Text("Created ${if (hours > 0) "${hours}h " else ""}${if (minutes > 0) "${minutes}min" else ""} ${seconds}sec ago")
   }
 }
 
@@ -73,6 +85,9 @@ private fun DetailRequest(
   isExpanded : Boolean,
   onClick    : () -> Unit
 ) {
+  var prettyPrintJson by mutable(true)
+  var isFormatted     by mutable(true)
+
   Surface(modifier = modifier.fillMaxWidth()) {
     Column {
       CollapseHeader(
@@ -83,11 +98,20 @@ private fun DetailRequest(
         Column {
           HeadersTable(modifier = M.padding(16.dp), headers = headers)
           if (body.isNotBlank()) {
-            SelectionContainer {
-              Text(
-                modifier = M.padding(16.dp),
-                fontSize = 14.sp,
-                text     = body)
+
+            val menuItems = mutableListOf(
+              ContextMenuItem(if (isFormatted) "Show Json" else "Format Json") { isFormatted = isFormatted.not() },
+              ContextMenuItem(if (showSearch )"Hide search bar" else "Show search bar") { showSearch = !showSearch })
+
+            if (isFormatted.not()) menuItems.add(0, (ContextMenuItem(if (prettyPrintJson) "Raw Json" else "Pretty print Json") { prettyPrintJson = prettyPrintJson.not() }))
+
+            // Json tree
+            ContextMenuDataProvider(
+              items = { menuItems }
+            ) { JsonArea(
+              isFormatted   = isFormatted,
+              body          = body,
+              isPrettyPrint = prettyPrintJson)
             }
           }
         }
@@ -115,11 +139,13 @@ private fun DetailResponse(
         onClick    = onClick)
       AnimatedVisibility(isExpanded) {
         when(response) {
-          null            -> ResponseForm(id, request.path ?: "Unknown path")
+          null            -> ResponseForm(id, request.path ?: "Unknown path", null)
           is Loading      -> Text(modifier = M.padding(16.dp), text = "Sending...")
+          is EditResponse -> ResponseForm(id, request.path ?: "Unknown path", response.response)
           is SentResponse -> {
-            val isFormatted        = mutable(false)
-            val areHeadersExpanded = mutable(false)
+            var prettyPrintJson    by mutable(true)
+            var isFormatted        by mutable(true)
+            var areHeadersExpanded by mutable(false)
 
             // Main info
             Column {
@@ -136,21 +162,29 @@ private fun DetailResponse(
               if (response.headers.size > 0) {
                 CollapseHeader(
                   text       = "Headers",
-                  isExpanded = areHeadersExpanded.value,
-                  onClick    = { areHeadersExpanded.value = areHeadersExpanded.value.not() })
-                AnimatedVisibility(areHeadersExpanded.value) {
+                  isExpanded = areHeadersExpanded,
+                  onClick    = { areHeadersExpanded = areHeadersExpanded.not() })
+                AnimatedVisibility(areHeadersExpanded) {
                   HeadersTable(modifier = M.padding(16.dp), headers = response.headers)
                 }
               }
 
               if (response.body.isNotBlank()) {
+
+                val menuItems = mutableListOf(
+                  ContextMenuItem(if (isFormatted) "Show Json" else "Format Json") { isFormatted = isFormatted.not() },
+                  ContextMenuItem("Save to file") { isSaveMockDialogVisible.value = true },
+                  ContextMenuItem(if (showSearch )"Hide search bar" else "Show search bar") { showSearch = !showSearch })
+
+                if (isFormatted.not()) menuItems.add(0, (ContextMenuItem(if (prettyPrintJson) "Raw Json" else "Pretty print Json") { prettyPrintJson = prettyPrintJson.not() }))
+
                 // Json tree
                 ContextMenuDataProvider(
-                  items = { listOf(
-                    ContextMenuItem(if (isFormatted.value) "Show raw Json" else "Format Json") { isFormatted.value = isFormatted.value.not() },
-                    ContextMenuItem("Save to file") { isSaveMockDialogVisible.value = true })
-                  }
-                ) { JsonArea(isFormatted = isFormatted.value, body = response.body) }
+                  items = { menuItems }
+                ) { JsonArea(
+                  isFormatted   = isFormatted,
+                  body          = response.body,
+                  isPrettyPrint = prettyPrintJson) }
               }
             }
           }
@@ -196,10 +230,16 @@ private fun DetailResponse(
 }
 
 @Composable
-fun ResponseForm(id: UUID, path: String) {
+fun ResponseForm(id: UUID, path: String, editResponse: SentResponse?) {
   val codesExpanded   = mutable(false)
   val codes           = derivedStateOf { if (codesExpanded.value) allHttpCodes else httpCodes }
-  val (body, setBody) = mutable("")
+
+  val parsed = try { JsonParser.parseString(editResponse?.body ?: "{}") } catch (e: Exception) {
+    e.printStackTrace()
+    JsonParser.parseString("{}")
+  }
+
+  val (body, setBody) = remember(id) { mutableStateOf((if (editResponse == null) "" else prettyGson.toJson(parsed))) }
 
   Column(modifier = M.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp)) {
     val savedMocks = getSavedMockFor(path)
@@ -207,7 +247,6 @@ fun ResponseForm(id: UUID, path: String) {
     // Insert own JSON
     OutlinedTextField(
       modifier      = M.fillMaxWidth().padding(bottom = 16.dp),
-      maxLines      = 20,
       label         = { Text("JSON mock", style = T.caption) },
       colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
       value         = body,
@@ -226,10 +265,9 @@ fun ResponseForm(id: UUID, path: String) {
           Text(modifier = M.padding(horizontal = 16.dp), text = "Real")
         }
 
-
         // HTTP codes
         codes.value.forEach { entry ->
-          Button(onClick  = { sendMockResponse(id, entry.key, body) }, shape = CircleShape) {
+          Button(onClick  = { sendMockResponse(id = id, url = editResponse?.url, code = entry.key, body = body) }, shape = CircleShape) {
             Text(modifier = M.padding(horizontal = 8.dp), text = if (codesExpanded.value) "${entry.key} - ${entry.value}" else "${entry.key}")
           }
         }
@@ -255,22 +293,22 @@ fun ResponseForm(id: UUID, path: String) {
 
 @Composable
 private fun JsonArea(
-  isFormatted : Boolean,
-  body        : String
+  isFormatted   : Boolean,
+  isPrettyPrint : Boolean,
+  body          : String
 ) {
+  val parsed = try { JsonParser.parseString(body) } catch (e: Exception) {
+    e.printStackTrace()
+    JsonParser.parseString("{}")
+  }
+
   Box(modifier = M.padding(vertical = 16.dp)) {
-    if(isFormatted) {
-      val collapsed = remember { mutableStateListOf<String>() }
-
-      val parsed = try { JsonParser.parseString(body) } catch (e: Exception) {
-        e.printStackTrace()
-        JsonParser.parseString("{}")
-      }
-
-      JsonTree(parsed, null, "", collapsed) {}
-    } else {
-      SelectionContainer(modifier = M.padding(horizontal = 16.dp)) { Text(fontSize = 14.sp, text = body) }
-    }
+    if(isFormatted)
+      MocDogJsonParser(element = parsed, showSearch = showSearch)
+    else
+      HighLightedTextWithScroll(
+        inputText  = if (isPrettyPrint) annotateJsonString(prettyGson.toJson(parsed)) else AnnotatedString(parsed.toString()),
+        showSearch = showSearch)
   }
 }
 

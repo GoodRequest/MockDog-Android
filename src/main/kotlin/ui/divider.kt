@@ -6,17 +6,14 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.input.pointer.PointerIconDefaults
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun DraggableDivider(
   width         : Dp,
@@ -28,7 +25,7 @@ fun DraggableDivider(
     .fillMaxHeight()
     .width(4.dp)
     .background(Black.copy(0.2f))
-    .pointerHoverIcon(PointerIconDefaults.Hand)
+    .pointerHoverIcon(PointerIcon.Hand)
     .draggable(
       state = rememberDraggableState { delta ->
         val newPaneWidth = width + with(density) { delta.toDp() }
