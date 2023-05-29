@@ -114,6 +114,7 @@ fun sendRealResponseAll() = requests.forEach { request ->
 }
 
 fun restartServer(useRealDevice: Boolean) {
+  sendRealResponseAll()
   server?.close()
   startServer(inetAddress = if (useRealDevice) getDefaultIpV4Address() else InetAddress.getByName("localhost"))
 }
