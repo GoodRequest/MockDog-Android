@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.*
+import java.net.InetAddress
 import java.util.*
 
 @Composable
@@ -68,6 +69,9 @@ fun LeftPane(
         useDevice.value = useDevice.value.not()
         restartServer(useDevice.value)
       })
+    AnimatedVisibility (useDevice.value) {
+      Text("IP: ${InetAddress.getLocalHost().hostAddress}", M.padding(start = 16.dp, bottom = 8.dp))
+    }
   }
 }
 
