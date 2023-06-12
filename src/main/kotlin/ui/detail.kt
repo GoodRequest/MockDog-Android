@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,28 +39,113 @@ fun Detail(id : UUID) {
 
   val selectedRequest = requests.firstOrNull { it.id == id }
   val response        = responses[id]
+  val scrollState     = rememberScrollState()
+  val editResponse    = remember(response) { response as? EditResponse }
+
+  val parsed          = try { JsonParser.parseString(editResponse?.response?.body ?: "{}") } catch (e: Exception) {
+    e.printStackTrace()
+    JsonParser.parseString("{}")
+  }
+
+  val (responseBody, setResponseBody) = remember(id) { mutableStateOf((if (response == null) "" else prettyGson.toJson(parsed))) }
 
   selectedRequest?.let {
-    Column(
-      modifier = M.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-      Text(
-        modifier = M.padding(bottom = 8.dp),
-        text     = listOfNotNull(it.request.method, it.request.path).joinToString(" "),
-        style    = T.subtitle1)
-      RequestTime(it.created)
-      DetailRequest(
-        headers     = it.request.headers,
-        body        = it.body,
-        isExpanded  = isExpandedRequest.value,
-        onClick     = { isExpandedRequest.value = isExpandedRequest.value.not() })
-      DetailResponse(
-        id          = it.id,
-        request     = it.request,
-        response    = response,
-        isExpanded  = isExpandedResponse.value,
-        onClick     = { isExpandedResponse.value = isExpandedResponse.value.not() })
+    Column(M.fillMaxSize().padding(16.dp)) {
+      Box(M.weight(1f).padding(bottom = 4.dp)) {
+        Column(
+          modifier = M.verticalScroll(scrollState),
+          verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+          Text(
+            modifier = M.padding(bottom = 8.dp),
+            text     = listOfNotNull(it.request.method, it.request.path).joinToString(" "),
+            style    = T.subtitle1)
+          RequestTime(it.created)
+          DetailRequest(
+            headers     = it.request.headers,
+            body        = it.body,
+            isExpanded  = isExpandedRequest.value,
+            onClick     = { isExpandedRequest.value = isExpandedRequest.value.not() })
+          DetailResponse(
+            request         = it.request,
+            response        = response,
+            isExpanded      = isExpandedResponse.value,
+            responseBody    = responseBody,
+            setResponseBody = setResponseBody,
+            onClick         = { isExpandedResponse.value = isExpandedResponse.value.not() })
+        }
+        VerticalScrollbar(
+          adapter  = rememberScrollbarAdapter(scrollState),
+          modifier = M.align(Alignment.CenterEnd).fillMaxHeight()
+        )
+      }
+
+      AnimatedVisibility(isExpandedResponse.value && response !is SentResponse && response !is Loading) {
+        Divider(M.height(1.dp))
+
+        // Response options
+        ResponseOptions(
+          id              = id,
+          requestPath     = it.request.path,
+          editResponse    = editResponse,
+          responseBody    = responseBody,
+          setResponseBody = setResponseBody
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun ResponseOptions(
+  id             : UUID,
+  requestPath    : String?,
+  editResponse   : EditResponse?,
+  responseBody   : String,
+  setResponseBody: (String) -> Unit
+) {
+  val codesExpanded = mutable(false)
+  val codes         = derivedStateOf { if (codesExpanded.value) allHttpCodes else httpCodes }
+  val savedMocks    = getSavedMockFor(requestPath ?: "Unknown path")
+
+  Column {
+    // Response codes
+    ContextMenuArea(items = { listOf(ContextMenuItem(if (codesExpanded.value) "Collapse" else "Expand") { codesExpanded.value = codesExpanded.value.not() }) }) {
+      Row(modifier = M.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+        //Real response
+        Button(
+          modifier = M.padding(end = 16.dp),
+          onClick  = { sendRealResponse(id) },
+          shape    = CircleShape
+        ) {
+          Text(modifier = M.padding(horizontal = 16.dp), text = "Real")
+        }
+
+        // HTTP codes
+        codes.value.forEach { entry ->
+          Button(onClick  = { sendMockResponse(id = id, url = editResponse?.response?.url, code = entry.key, body = responseBody) }, shape = CircleShape) {
+            Text(modifier = M.padding(horizontal = 8.dp), text = if (codesExpanded.value) "${entry.key} - ${entry.value}" else "${entry.key}")
+          }
+        }
+      }
+    }
+
+    // Saved mocks
+    if(savedMocks.isNotEmpty()) {
+      Text(modifier = M.padding(bottom = 4.dp), text = "Load saved mocks", style = T.caption)
+      Row(
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        savedMocks.forEach { file ->
+          ContextMenuArea(items = { listOf(ContextMenuItem("Delete saved mock") { deleteFile(file) }) }) {
+            Button(onClick = { setResponseBody(readFile(file) ?: "Cannot read file") }, shape = CircleShape) {
+              Text(modifier = M.padding(horizontal = 8.dp), text = file.substringAfterLast("_"))
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -122,14 +208,16 @@ private fun DetailRequest(
 
 @Composable
 private fun DetailResponse(
-  modifier   : Modifier = Modifier,
-  id         : UUID,
-  request    : RecordedRequest,
-  response   : Response?,
-  isExpanded : Boolean,
-  onClick    : () -> Unit
+  modifier       : Modifier = Modifier,
+  request        : RecordedRequest,
+  response       : Response?,
+  isExpanded     : Boolean,
+  responseBody   : String,
+  setResponseBody: (String) -> Unit,
+  onClick        : () -> Unit
 ) {
   val isSaveMockDialogVisible = mutable(false)
+  val isMockNameTheSame       = mutable(false)
 
   Surface(modifier = modifier.fillMaxWidth()) {
     Column {
@@ -139,10 +227,9 @@ private fun DetailResponse(
         onClick    = onClick)
       AnimatedVisibility(isExpanded) {
         when(response) {
-          null            -> ResponseForm(id, request.path ?: "Unknown path", null)
-          is Loading      -> Text(modifier = M.padding(16.dp), text = "Sending...")
-          is EditResponse -> ResponseForm(id, request.path ?: "Unknown path", response.response)
-          is SentResponse -> {
+          null, is EditResponse -> ResponseForm(body = responseBody, setBody = setResponseBody)
+          is Loading            -> Text(modifier = M.padding(16.dp), text = "Sending...")
+          is SentResponse       -> {
             var prettyPrintJson    by mutable(true)
             var isFormatted        by mutable(true)
             var areHeadersExpanded by mutable(false)
@@ -203,8 +290,7 @@ private fun DetailResponse(
         val name = mutable("")
 
         Column (
-          modifier = modifier.padding(16.dp),
-          verticalArrangement = Arrangement.spacedBy(16.dp),
+          modifier = modifier.padding(16.dp)
         ) {
           OutlinedTextField(
             modifier      = M.fillMaxWidth(),
@@ -212,14 +298,27 @@ private fun DetailResponse(
             label         = { Text("Name of response", style = T.caption) },
             singleLine    = true,
             value         = name.value,
-            onValueChange = { name.value = it })
+            onValueChange = { name.value = it; isMockNameTheSame.value = false },
+            isError       = isMockNameTheSame.value,
+            trailingIcon  = {
+              if (isMockNameTheSame.value)
+                Icon(Icons.Filled.Warning,"error", tint = MaterialTheme.colors.error)
+            })
+          if (isMockNameTheSame.value) {
+            Text(
+              text     = "Response name is already exists, try another one.",
+              color    = MaterialTheme.colors.error,
+              style    = MaterialTheme.typography.caption,
+              modifier = M.padding(start = 16.dp)
+            )
+          }
           Spacer(modifier = M.weight(1f))
           Button(
             modifier = M.align(Alignment.End),
-            enabled  = name.value.isNotBlank(),
+            enabled  = name.value.isNotBlank() && isMockNameTheSame.value.not(),
             onClick = {
-              saveFile(request.path ?: "Unknown path", name.value, response.body)
-              isSaveMockDialogVisible.value = false
+              isMockNameTheSame.value       = saveFile(request.path ?: "Unknown path", name.value, response.body)
+              isSaveMockDialogVisible.value = isMockNameTheSame.value
             }
           ) {
             Text(modifier = M.padding(horizontal = 16.dp), text = "Save")
@@ -230,64 +329,17 @@ private fun DetailResponse(
 }
 
 @Composable
-fun ResponseForm(id: UUID, path: String, editResponse: SentResponse?) {
-  val codesExpanded   = mutable(false)
-  val codes           = derivedStateOf { if (codesExpanded.value) allHttpCodes else httpCodes }
-
-  val parsed = try { JsonParser.parseString(editResponse?.body ?: "{}") } catch (e: Exception) {
-    e.printStackTrace()
-    JsonParser.parseString("{}")
-  }
-
-  val (body, setBody) = remember(id) { mutableStateOf((if (editResponse == null) "" else prettyGson.toJson(parsed))) }
+fun ResponseForm(body: String, setBody: (String) -> Unit) {
 
   Column(modifier = M.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp)) {
-    val savedMocks = getSavedMockFor(path)
-
     // Insert own JSON
+    // TODO add search
     OutlinedTextField(
       modifier      = M.fillMaxWidth().padding(bottom = 16.dp),
       label         = { Text("JSON mock", style = T.caption) },
       colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
       value         = body,
-      onValueChange = { setBody(it) })
-
-    // Response codes
-    ContextMenuArea(items = { listOf(ContextMenuItem(if (codesExpanded.value) "Collapse" else "Expand") { codesExpanded.value = codesExpanded.value.not() }) }) {
-      Row(modifier = M.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-
-        //Real response
-        Button(
-          modifier = M.padding(end = 16.dp),
-          onClick  = { sendRealResponse(id) },
-          shape    = CircleShape
-        ) {
-          Text(modifier = M.padding(horizontal = 16.dp), text = "Real")
-        }
-
-        // HTTP codes
-        codes.value.forEach { entry ->
-          Button(onClick  = { sendMockResponse(id = id, url = editResponse?.url, code = entry.key, body = body) }, shape = CircleShape) {
-            Text(modifier = M.padding(horizontal = 8.dp), text = if (codesExpanded.value) "${entry.key} - ${entry.value}" else "${entry.key}")
-          }
-        }
-      }
-    }
-
-    // Saved mocks
-    if(savedMocks.isNotEmpty()) {
-      Text(modifier = M.padding(bottom = 4.dp), text = "Load saved mocks", style = T.caption)
-      Row(
-        verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-      ) {
-        savedMocks.forEach { file ->
-          Button(onClick  = { setBody(readFile(file) ?: "Cannot read file") }, shape = CircleShape) {
-            Text(modifier = M.padding(horizontal = 8.dp), text = file.substringAfterLast("_"))
-          }
-        }
-      }
-    }
+      onValueChange = setBody)
   }
 }
 

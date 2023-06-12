@@ -29,9 +29,10 @@ val responses = mutableStateMapOf<UUID, Response>()
 private val queues = ConcurrentHashMap<UUID, BlockingQueue<Response>>()
 private var server : MockWebServer? = null
 
-val mockingEnabled  = mutableStateOf(true)
-val throttle        = mutableStateOf(Throttle(isEnabled = false, delay = 0))
-val useDevice       = mutableStateOf(true)
+val mockingEnabled   = mutableStateOf(true)
+val mockRealResponse = mutableStateOf(true)
+val throttle         = mutableStateOf(Throttle(isEnabled = false, delay = 0))
+val useDevice        = mutableStateOf(true)
 
 // "data" tu je iba kvoli copy metode. HashCode nefunguje dobre, bacha na to, nepouzivat!
 data class Request(
@@ -64,9 +65,11 @@ fun startServer(port: Int = 52242, inetAddress: InetAddress = getDefaultIpV4Addr
 
         requests.add(request)
 
-        val response: SentResponse = if(mockingEnabled.value) {
-          responses[request.id] = Loading
-          responses[request.id] = EditResponse(sendRealRequest(request))
+        val response: SentResponse = if(mockingEnabled.value && whiteListRequests.contains(recorded.requestLine).not()) {
+          if (mockRealResponse.value) {
+            responses[request.id] = Loading
+            responses[request.id] = EditResponse(sendRealRequest(request))
+          }
           val value = queues.getOrPut(request.id) { ArrayBlockingQueue(1) }.take()
           if(value is SentResponse) {
             value

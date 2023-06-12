@@ -1,6 +1,9 @@
 package core
 
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import com.google.gson.reflect.TypeToken
+import ui.prettyGson
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -10,12 +13,27 @@ import java.util.*
 private val folder = "${System.getProperty("user.home")}${File.separatorChar}MockdogMocks".also { File(it).mkdirs() }
 private val mockFiles = mutableStateOf(emptyList<String>())
 
-fun saveFile(path: String, name: String, body: String) = try {
-  // TODO nefunguje ak name v sebe obsahuje '_'
-  val pathName = path.substringBefore("?").replace("/", "_") + "_" + name
-  File(folder).mkdirs()
-  File("${folder}/$pathName.txt").writeText(body)
-  mockFiles.value += pathName
+val whiteListRequests = mutableStateListOf<String>()
+fun saveFile(path: String, name: String, body: String): Boolean {
+  return try {
+    // TODO nefunguje ak name v sebe obsahuje '_'
+
+    if (getSavedMockFor(path).map { it.substringAfterLast("_").lowercase() }.contains(name.lowercase())) return true
+
+    val pathName = path.substringBefore("?").replace("/", "_") + "_" + name
+    File(folder).mkdirs()
+    File("${folder}/$pathName.txt").writeText(body)
+    mockFiles.value += pathName
+    false
+  } catch (e: Exception) {
+    e.printStackTrace()
+    true
+  }
+}
+
+fun deleteFile(name: String) = try {
+  File("${folder}/$name.txt").delete()
+  mockFiles.value -= name
 } catch (e: Exception) {
   e.printStackTrace()
 }
@@ -36,6 +54,28 @@ fun readFile(name: String): String? = try {
 } catch (e: Exception) {
   e.printStackTrace()
   null
+}
+
+fun saveWhiteList(
+  requestLine: String,
+  isAdd      : Boolean = true
+) {
+  val whiteListFolder = File(folder, "WhiteList")
+  whiteListFolder.mkdir()
+
+  if (isAdd) whiteListRequests.add(requestLine)
+  else whiteListRequests.remove(requestLine)
+
+  val outputJsonString = prettyGson.toJson(whiteListRequests)
+  File("${whiteListFolder}/actualWhiteList.json").writeText(outputJsonString)
+}
+
+fun readWhiteList() {
+  runCatching {
+    val whiteListJsonString = File("${folder}/WhiteList/actualWhiteList.json").readText()
+    val whiteList = prettyGson.fromJson<List<String>>(whiteListJsonString, object : TypeToken<List<String>>(){}.type)
+    whiteListRequests.addAll(whiteList)
+  }
 }
 
 fun saveUncaughtException(thread: Thread, throwable: Throwable) {
