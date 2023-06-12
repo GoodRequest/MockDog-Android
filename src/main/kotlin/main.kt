@@ -12,6 +12,7 @@ import core.saveUncaughtException
 import core.startServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.jetbrains.skiko.hostOs
 import ui.App
 import ui.showSearch
 
@@ -28,7 +29,7 @@ fun main() {
       state          = windowState,
       onCloseRequest = ::exitApplication,
       onKeyEvent     = {
-        if (it.isCtrlPressed && it.key == Key.F && it.type == KeyEventType.KeyDown) {
+        if ((hostOs.isMacOS && it.isAltPressed) || it.isCtrlPressed && it.key == Key.F && it.type == KeyEventType.KeyDown) {
           showSearch = showSearch.not()
           true
         } else false
