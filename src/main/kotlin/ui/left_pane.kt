@@ -1,6 +1,7 @@
 package ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -53,6 +54,11 @@ fun LeftPane(
         onSelect = onSelect)
     }
     Divider(M.height(1.dp))
+    LeftPaneRow(
+      title     = "Use PushDog",
+      imageRes = "pushdog.png",
+      check     = pushDogDialog.value,
+      onChecked = { pushDogDialog.value = pushDogDialog.value.not() })
     LeftPaneRow(
       title     = "Mock responses",
       check     = mockingEnabled.value,
@@ -145,6 +151,7 @@ private fun RequestHistory(
 @Composable
 private fun LeftPaneRow(
   title     : String,
+  imageRes  : String? = null,
   check     : Boolean,
   onChecked : (Boolean) -> Unit
 ) {
@@ -153,7 +160,13 @@ private fun LeftPaneRow(
     verticalAlignment = Alignment.CenterVertically
   ) {
     Checkbox(checked = check, onCheckedChange = onChecked)
-    Text(style = T.body2, text = title)
+    Text(style = T.body2, text = title, modifier = M.weight(1f))
+    imageRes?.let {
+      Image(
+        modifier           = M.height(40.dp).padding(end = 8.dp),
+        bitmap             = rememberPainter(it),
+        contentDescription = null, )
+    }
   }
 }
 

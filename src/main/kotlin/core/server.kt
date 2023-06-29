@@ -32,6 +32,7 @@ private var server : MockWebServer? = null
 val mockingEnabled  = mutableStateOf(true)
 val throttle        = mutableStateOf(Throttle(isEnabled = false, delay = 0))
 val useDevice       = mutableStateOf(true)
+val fcmToken        = mutableStateOf("")
 
 // "data" tu je iba kvoli copy metode. HashCode nefunguje dobre, bacha na to, nepouzivat!
 data class Request(
@@ -61,6 +62,10 @@ fun startServer(port: Int = 52242, inetAddress: InetAddress = getDefaultIpV4Addr
           created = System.currentTimeMillis(),
           request = recorded,
           body    = recorded.body.readUtf8()) // TODO exception
+
+        recorded.headers["FCM-Token"]?.let { token ->
+          fcmToken.value = token
+        }
 
         requests.add(request)
 

@@ -13,7 +13,7 @@ import okio.gzip
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTimedValue
 
-private val client = OkHttpClient.Builder()
+val client = OkHttpClient.Builder()
   .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
   .build()
 
