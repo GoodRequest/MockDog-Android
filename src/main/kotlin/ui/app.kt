@@ -6,14 +6,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.unit.dp
 import core.mutable
 import java.util.*
 
+val isDarkTheme = mutableStateOf(true)
+
 @Composable
 fun App() {
   MaterialTheme(
-    colors     = Palette,
+    colors     = if (isDarkTheme.value) DarkPalette else LightPalette,
     typography = Typography
   ) {
     Surface(M.fillMaxWidth()) {
