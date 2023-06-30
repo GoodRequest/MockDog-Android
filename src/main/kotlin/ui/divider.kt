@@ -24,7 +24,7 @@ fun DraggableDivider(
   Box(modifier = M
     .fillMaxHeight()
     .width(4.dp)
-    .background(C.onSurface.copy(0.2f))
+    .background(Black.copy(0.2f))
     .pointerHoverIcon(PointerIcon.Hand)
     .draggable(
       state = rememberDraggableState { delta ->

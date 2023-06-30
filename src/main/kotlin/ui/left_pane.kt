@@ -104,9 +104,9 @@ private fun RequestHistory(
         modifier = M
           .fillParentMaxWidth()
           .background(when {
-            isSelected     -> C.secondaryVariant
+            isSelected     -> BlueLight
             index % 2 == 1 -> C.surface
-            else           -> C.background.copy(alpha = 0.75f)
+            else           -> C.background
           })
           .clickable { onSelect(request.id) }
           .padding(end = 16.dp, top = 8.dp, bottom = 8.dp)

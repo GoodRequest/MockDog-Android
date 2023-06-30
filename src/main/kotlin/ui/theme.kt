@@ -18,24 +18,20 @@ val SH @Composable get() = MaterialTheme.shapes
 val PrimeBlack         = Color(0xFF05141F)
 val PrimeBlackVariant  = Color(0xFF37434C)
 val GreyLight          = Color(0xFFF0F1F2)
-//val GreyDark           = Color(0xFF121212)
+val GreyDark           = Color(0xFF121212)
 val Red                = Color(0xFFEA0029)
-//val Black              = Color(0xFF000000)
+val Black              = Color(0xFF000000)
 val White              = Color(0xFFFFFFFF)
 val BlueLight          = Color(0xFFE0F2FE)
 val Blue               = Color(0xFF3B82F6)
 val Green              = Color(0xFF66BB6A)
 val Orange             = Color(0xFFFFC107)
-val BlueDark           = Color(0xFF0d1b36)
-val SurfaceDark        = Color(0xFF3C3F41)
-val BackgroundDark     = Color(0xFF2B2B2b)
 
-
-val LightPalette = lightColors(
+val Palette = lightColors(
   primary          = PrimeBlack,
-  primaryVariant   = PrimeBlackVariant,   // nepouziva sa
+  primaryVariant   = PrimeBlackVariant,
   secondary        = PrimeBlack,
-  secondaryVariant = BlueLight,
+  secondaryVariant = PrimeBlackVariant,
   background       = GreyLight,
   surface          = White,
   error            = Red,
@@ -44,21 +40,6 @@ val LightPalette = lightColors(
   onBackground     = PrimeBlack,
   onSurface        = PrimeBlack,
   onError          = White
-)
-
-val DarkPalette = lightColors(
-  primary          = White,
-  primaryVariant   = PrimeBlackVariant,   // nepouziva sa
-  secondary        = GreyLight,
-  secondaryVariant = BlueDark,
-  background       = BackgroundDark,
-  surface          = SurfaceDark,
-  error            = Red,
-  onPrimary        = PrimeBlack,
-  onSecondary      = White,
-  onBackground     = White,
-  onSurface        = White,
-  onError          = PrimeBlack
 )
 
 val Typography = Typography(
