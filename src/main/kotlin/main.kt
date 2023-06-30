@@ -18,8 +18,7 @@ import ui.App
 import ui.isDarkTheme
 import ui.showSearch
 
-//val windowState = WindowState(size = DpSize(1920.dp, 1080.dp))
-val windowState = WindowState(size = DpSize(800.dp, 800.dp))
+val windowState = WindowState(size = DpSize(1920.dp, 1080.dp))
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
   startServer()
