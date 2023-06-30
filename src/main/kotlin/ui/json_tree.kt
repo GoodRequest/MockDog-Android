@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -48,6 +49,7 @@ import java.text.Normalizer
 import java.util.regex.Pattern
 import kotlin.math.max
 
+// ttotoo more
 private val jsonKey        : SpanStyle = SpanStyle(Color(0xFF4091cf))
 private val jsonPunctuation: SpanStyle = SpanStyle(Color(0xFF808080))
 fun annotateJsonString(str: String) = buildAnnotatedString {
@@ -122,7 +124,7 @@ fun HighLightedTextWithScroll(
       value         = textFieldValue,
       onValueChange = { textFieldValue = it.copy(annotatedString = text) },
       textStyle     = LocalTextStyle.current.copy(
-        color    = PrimeBlack,
+        color    = C.primary,
         fontSize = 14.sp))
   }
 
@@ -187,7 +189,7 @@ fun MocDogJsonParser(
     Text(
       modifier = modifier.then(if (highlightStartIndexes.isNotEmpty()) M.bringIntoViewRequester(bringIntoViewRequester) else M),
       text     = text,
-      color    = PrimeBlack,
+      color    = C.primary,
       fontSize = 14.sp,
       overflow = overflow,
       maxLines = maxLines
@@ -364,7 +366,7 @@ fun MocDogJsonParser(
         }
       }
 
-      Column(M.padding(8.dp)) {
+      Column(M.background(C.background).padding(8.dp)) {
         Text("Found ${matchesCount.value} matches in ${highlightItems.map { it.first }.toSet().size} list items.")
         val (dialogSelectedVal, setDialogSelectedVal) = remember(highlightItems) { mutableStateOf(0) }
         Row {
@@ -475,7 +477,7 @@ private fun rememberHighlightText(
     append(inputText)
     highlightIndexes.map {
       addStyle(
-        style = SpanStyle(background = Color.Yellow),
+        style = SpanStyle(background = Color.Yellow.copy(alpha = 0.5f)),
         start = it,
         end   = it + textToHighlight.length)
     }
@@ -501,6 +503,8 @@ private fun searchView(
       value             = search,
       onValueChange     = setSearch,
       interactionSource = interactionSource,
+      textStyle         = TextStyle.Default.copy(color = C.secondary),
+      cursorBrush       = SolidColor(C.secondary)
     ) {
       TextFieldDefaults.OutlinedTextFieldDecorationBox(
         value                = search,
@@ -535,7 +539,7 @@ private fun searchView(
 }
 
 @Composable
-private fun EndText(text: String) = Text(text, color = PrimeBlack, fontSize = 14.sp)
+private fun EndText(text: String) = Text(text, color = C.primary, fontSize = 14.sp)
 
 private fun CharSequence.unaccented(): String =
   "\\p{InCombiningDiacriticalMarks}+".toRegex().replace(Normalizer.normalize(this, Normalizer.Form.NFD), "")
