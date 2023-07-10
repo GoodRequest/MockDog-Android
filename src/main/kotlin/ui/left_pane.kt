@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.runtime.Composable
@@ -195,6 +196,8 @@ private fun RequestHistory(
             modifier = M.weight(1f),
             text     = request.request.path ?: "Unknown path",
             style    = T.body2)
+
+          if (isRequestInWhiteList) Icon(Icons.Default.List, null)
         }
       }
     }

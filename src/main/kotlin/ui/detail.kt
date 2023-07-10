@@ -42,12 +42,9 @@ fun Detail(id : UUID) {
   val scrollState     = rememberScrollState()
   val editResponse    = remember(response) { response as? EditResponse }
 
-  val parsed          = try { JsonParser.parseString(editResponse?.response?.body ?: "{}") } catch (e: Exception) {
-    e.printStackTrace()
-    JsonParser.parseString("{}")
+  val (responseBody, setResponseBody) = remember(id) {
+    mutableStateOf<ResponseType>(ResponseType.Real(editResponse?.response?.body ?: ""))
   }
-
-  val (responseBody, setResponseBody) = remember(id) { mutableStateOf((if (response == null) "" else prettyGson.toJson(parsed))) }
 
   selectedRequest?.let {
     Column(M.fillMaxSize().padding(16.dp)) {
@@ -101,8 +98,8 @@ private fun ResponseOptions(
   id             : UUID,
   requestPath    : String?,
   editResponse   : EditResponse?,
-  responseBody   : String,
-  setResponseBody: (String) -> Unit
+  responseBody   : ResponseType,
+  setResponseBody: (ResponseType) -> Unit
 ) {
   val codesExpanded = mutable(false)
   val codes         = derivedStateOf { if (codesExpanded.value) allHttpCodes else httpCodes }
@@ -124,7 +121,7 @@ private fun ResponseOptions(
 
         // HTTP codes
         codes.value.forEach { entry ->
-          Button(onClick  = { sendMockResponse(id = id, url = editResponse?.response?.url, code = entry.key, body = responseBody) }, shape = CircleShape) {
+          Button(onClick  = { sendMockResponse(id = id, url = editResponse?.response?.url, code = entry.key, body = responseBody.value) }, shape = CircleShape) {
             Text(modifier = M.padding(horizontal = 8.dp), text = if (codesExpanded.value) "${entry.key} - ${entry.value}" else "${entry.key}")
           }
         }
@@ -139,9 +136,12 @@ private fun ResponseOptions(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
       ) {
         savedMocks.forEach { file ->
+          val name = file.substringAfterLast("_")
           ContextMenuArea(items = { listOf(ContextMenuItem("Delete saved mock") { deleteFile(file) }) }) {
-            Button(onClick = { setResponseBody(readFile(file) ?: "Cannot read file") }, shape = CircleShape) {
-              Text(modifier = M.padding(horizontal = 8.dp), text = file.substringAfterLast("_"))
+            Button(
+              onClick = { setResponseBody(ResponseType.Mock(mockBody = readFile(file) ?: "Cannot read file",path = file, name = name)) },
+              shape   = CircleShape) {
+              Text(modifier = M.padding(horizontal = 8.dp), text = name)
             }
           }
         }
@@ -212,12 +212,11 @@ private fun DetailResponse(
   request        : RecordedRequest,
   response       : Response?,
   isExpanded     : Boolean,
-  responseBody   : String,
-  setResponseBody: (String) -> Unit,
+  responseBody   : ResponseType,
+  setResponseBody: (ResponseType) -> Unit,
   onClick        : () -> Unit
 ) {
   val isSaveMockDialogVisible = mutable(false)
-  val isMockNameTheSame       = mutable(false)
 
   Surface(modifier = modifier.fillMaxWidth()) {
     Column {
@@ -227,7 +226,7 @@ private fun DetailResponse(
         onClick    = onClick)
       AnimatedVisibility(isExpanded) {
         when(response) {
-          null, is EditResponse -> ResponseForm(body = responseBody, setBody = setResponseBody)
+          null, is EditResponse -> ResponseForm(body = responseBody, setBody = setResponseBody, requestPath = request.path)
           is Loading            -> Text(modifier = M.padding(16.dp), text = "Sending...")
           is SentResponse       -> {
             var prettyPrintJson    by mutable(true)
@@ -281,66 +280,104 @@ private fun DetailResponse(
   }
 
   if (isSaveMockDialogVisible.value && response is SentResponse) {
-    Dialog(
-      state          = rememberDialogState(size = DpSize(400.dp, 200.dp)),
+    SaveMockDialog(
       onCloseRequest = { isSaveMockDialogVisible.value = false },
-      title          = "Save mock to file",
-      resizable      = false,
-      content = {
-        val name = mutable("")
-
-        Column (
-          modifier = modifier.padding(16.dp)
-        ) {
-          OutlinedTextField(
-            modifier      = M.fillMaxWidth(),
-            maxLines      = 1,
-            label         = { Text("Name of response", style = T.caption) },
-            singleLine    = true,
-            value         = name.value,
-            onValueChange = { name.value = it; isMockNameTheSame.value = false },
-            isError       = isMockNameTheSame.value,
-            trailingIcon  = {
-              if (isMockNameTheSame.value)
-                Icon(Icons.Filled.Warning,"error", tint = MaterialTheme.colors.error)
-            })
-          if (isMockNameTheSame.value) {
-            Text(
-              text     = "Response name is already exists, try another one.",
-              color    = MaterialTheme.colors.error,
-              style    = MaterialTheme.typography.caption,
-              modifier = M.padding(start = 16.dp)
-            )
-          }
-          Spacer(modifier = M.weight(1f))
-          Button(
-            modifier = M.align(Alignment.End),
-            enabled  = name.value.isNotBlank() && isMockNameTheSame.value.not(),
-            onClick = {
-              isMockNameTheSame.value       = saveFile(request.path ?: "Unknown path", name.value, response.body)
-              isSaveMockDialogVisible.value = isMockNameTheSame.value
-            }
-          ) {
-            Text(modifier = M.padding(horizontal = 16.dp), text = "Save")
-          }
-        }
-      })
+      requestPath    = request.path,
+      responseBody   = response.body)
   }
 }
 
 @Composable
-fun ResponseForm(body: String, setBody: (String) -> Unit) {
+fun SaveMockDialog(
+  onCloseRequest: () -> Unit,
+  requestPath   : String?,
+  responseBody  : String,
+) {
+  val isMockNameTheSame = mutable(false)
+
+  Dialog(
+    state          = rememberDialogState(size = DpSize(400.dp, 200.dp)),
+    onCloseRequest = onCloseRequest,
+    title          = "Save mock to file",
+    resizable      = false,
+    content        = {
+      val name = mutable("")
+
+      Column (
+        modifier = Modifier.padding(16.dp)
+      ) {
+        OutlinedTextField(
+          modifier      = M.fillMaxWidth(),
+          maxLines      = 1,
+          label         = { Text("Name of response", style = T.caption) },
+          singleLine    = true,
+          value         = name.value,
+          onValueChange = { name.value = it; isMockNameTheSame.value = false },
+          isError       = isMockNameTheSame.value,
+          trailingIcon  = {
+            if (isMockNameTheSame.value)
+              Icon(Icons.Filled.Warning,"error", tint = MaterialTheme.colors.error)
+          })
+        if (isMockNameTheSame.value) {
+          Text(
+            text     = "Response name is already exists, try another one.",
+            color    = MaterialTheme.colors.error,
+            style    = MaterialTheme.typography.caption,
+            modifier = M.padding(start = 16.dp)
+          )
+        }
+        Spacer(modifier = M.weight(1f))
+        Button(
+          modifier = M.align(Alignment.End),
+          enabled  = name.value.isNotBlank() && isMockNameTheSame.value.not(),
+          onClick = {
+            isMockNameTheSame.value = saveFile(requestPath ?: "Unknown path", name.value, responseBody)
+            if (isMockNameTheSame.value.not()) onCloseRequest()
+          }
+        ) {
+          Text(modifier = M.padding(horizontal = 16.dp), text = "Save")
+        }
+      }
+    })
+}
+
+@Composable
+fun ResponseForm(body: ResponseType, setBody: (ResponseType) -> Unit, requestPath: String?) {
+  var isSaveMockDialogVisible by mutable(false)
+  var prettyPrintJson         by mutable(true)
+
+  val menuItems = listOf(
+    ContextMenuItem(if (prettyPrintJson) "Raw Json" else "Pretty print Json") { prettyPrintJson = prettyPrintJson.not() },
+    ContextMenuItem("Save to new mock file") { isSaveMockDialogVisible = true },
+    if (body is ResponseType.Mock) ContextMenuItem("Edit actual mock file (${body.name})") {
+      saveFile(path = requestPath ?: "Unknown path", name = body.name, body = body.value, checkIfExist = false)
+    } else null
+  ).mapNotNull { it }
 
   Column(modifier = M.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp)) {
     // Insert own JSON
     // TODO add search
-    OutlinedTextField(
-      modifier      = M.fillMaxWidth().padding(bottom = 16.dp),
-      label         = { Text("JSON mock", style = T.caption) },
-      colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
-      value         = body,
-      onValueChange = setBody)
+
+    ContextMenuDataProvider(items = { menuItems }) {
+      OutlinedTextField(
+        modifier      = M.fillMaxWidth().padding(bottom = 16.dp),
+        label         = { Text("JSON mock", style = T.caption) },
+        colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),
+        value         = if (prettyPrintJson) prettyGson.stringOrDefault(body.value) else body.value,
+        onValueChange = { changedBody ->
+          when(body) {
+            is ResponseType.Mock -> setBody(ResponseType.Mock(mockBody = changedBody, path = body.path, name = body.name))
+            is ResponseType.Real -> setBody(ResponseType.Real(realBody = changedBody))
+          }
+        })
+    }
   }
+
+  if (isSaveMockDialogVisible)
+    SaveMockDialog(
+      onCloseRequest = { isSaveMockDialogVisible = false },
+      requestPath    = requestPath,
+      responseBody   = body.value)
 }
 
 @Composable
@@ -421,3 +458,14 @@ private val allHttpCodes = mapOf(
   400 to "Bad Request", 401 to "Unauthorised", 402 to "Payment Required", 403 to "Forbidden", 404 to "Not Found", 405 to "Method Not Allowed", 406 to "Not Acceptable", 407 to "Proxy Authentication Required", 408 to "Request Timeout", 409 to "Conflict", 410 to "Gone", 411 to "Length Required", 412 to "Precondition Failed", 413 to "Payload Too Large", 414 to "URI Too Long", 415 to "Unsupported Media Type", 416 to "Range Not Satisfiable", 417 to "Expectation Failed", 418 to "I'm a teapot", 421 to "Misdirected Request", 422 to "Unprocessable Entity ", 423 to "Locked", 424 to "Failed Dependency", 425 to "Too Early", 426 to "Upgrade Required", 428 to "Precondition Required", 429 to "Too Many Requests", 431 to "Request Header Fields Too Large", 451 to "Unavailable For Legal Reasons",
   500 to "Internal Server Error", 501 to "Not Implemented", 502 to "Bad Gateway", 503 to "Service Unavailable", 504 to "Gateway Timeout", 505 to "HTTP Version Not Supported", 506 to "Variant Also Negotiates", 507 to "Insufficient Storage", 508 to "Loop Detected", 510 to "Not Extended", 511 to "Network Authentication Required",
 )
+
+sealed class ResponseType(val value: String) {
+  data class Mock(val mockBody: String, val path: String, val name: String): ResponseType(value = mockBody)
+  data class Real(val realBody: String)                                    : ResponseType(value = realBody)
+}
+
+fun Gson.stringOrDefault(textValue: String) = runCatching {
+  toJson(JsonParser.parseString(textValue))
+}.getOrElse { textValue }.takeIf {
+  it.firstOrNull() != '"' && it != "null"
+} ?: textValue
