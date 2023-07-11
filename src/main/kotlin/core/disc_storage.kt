@@ -8,7 +8,7 @@ import java.util.*
 // TODO tento file si zasluzi lasku
 
 private val folder = "${System.getProperty("user.home")}${File.separatorChar}MockdogMocks".also { File(it).mkdirs() }
-private val mockFiles = mutableStateOf(emptyList<String>())
+val mockFiles = mutableStateOf(emptyList<String>())
 
 fun saveFile(path: String, name: String, body: String) = try {
   // TODO nefunguje ak name v sebe obsahuje '_'
