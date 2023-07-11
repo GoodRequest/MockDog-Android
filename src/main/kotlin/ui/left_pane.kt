@@ -31,6 +31,9 @@ fun LeftPane(
 ) {
   Column(M.fillMaxHeight().width(paneWidth).background(C.surface)) {
     Column(M.weight(1f)) {
+      Button(onClick = { globalResponseDialog = true }) {
+        Text("Set global response TODO(do setting)")
+      }
       Row {
         Text(
           modifier = M.padding(16.dp).weight(1f),

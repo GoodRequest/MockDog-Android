@@ -362,7 +362,7 @@ private val httpCodes = mapOf(
   200 to "Ok", 401 to "Unauthorised", 404 to "Not Found", 500 to "Internal Server Error"
 )
 
-private val allHttpCodes = mapOf(
+val allHttpCodes = mapOf(
   100 to "Continue", 101 to "Switching Protocols", 102 to "Processing", 103 to "Early Hints",
   200 to "Ok", 201 to "Created", 202 to "Accepted", 203 to "Non-Authoritative Information", 204 to "No Content", 205 to "Reset Content", 206 to "Partial Content", 207 to "Multi Status", 208 to "Already Reported", 226 to "IM Used",
   300 to "Multiple Choices", 301  to "Moved Permanently", 302 to "Found", 303 to "See Other", 304 to "Not Modified", 305 to "Use Proxy", 306 to "Unused", 307 to "Temporary Redirect", 308 to "Permanent Redirect",

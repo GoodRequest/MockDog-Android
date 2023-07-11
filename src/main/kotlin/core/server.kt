@@ -8,6 +8,7 @@ import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+import ui.globalResponse
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
@@ -64,18 +65,22 @@ fun startServer(port: Int = 52242, inetAddress: InetAddress = getDefaultIpV4Addr
 
         requests.add(request)
 
-        val response: SentResponse = if(mockingEnabled.value) {
-          responses[request.id] = Loading
-          responses[request.id] = EditResponse(sendRealRequest(request))
-          val value = queues.getOrPut(request.id) { ArrayBlockingQueue(1) }.take()
-          if(value is SentResponse) {
-            value
+        val response: SentResponse = if (globalResponse != null) {
+          SentResponse(status = globalResponse!!.code, body = globalResponse!!.body)
+        } else {
+          if(mockingEnabled.value) {
+            responses[request.id] = Loading
+            responses[request.id] = EditResponse(sendRealRequest(request))
+            val value = queues.getOrPut(request.id) { ArrayBlockingQueue(1) }.take()
+            if(value is SentResponse) {
+              value
+            } else {
+              responses[request.id] = value
+              sendRealRequest(request)
+            }
           } else {
-            responses[request.id] = value
             sendRealRequest(request)
           }
-        } else {
-          sendRealRequest(request)
         }
 
         responses[request.id] = response
