@@ -256,11 +256,20 @@ fun ResponseForm(id: UUID, path: String, editResponse: SentResponse?) {
 
       //Real response
       Button(
-        modifier = M.padding(end = 16.dp),
+        modifier = M.padding(end = 8.dp),
         onClick  = { sendRealResponse(id) },
         shape    = CircleShape
       ) {
         Text(modifier = M.padding(horizontal = 16.dp), text = "Real")
+      }
+
+      //All responses
+      Button(
+        modifier = M.padding(end = 8.dp),
+        onClick  = { codesExpanded = !codesExpanded },
+        shape    = CircleShape
+      ) {
+        Text(modifier = M.padding(horizontal = 16.dp), text = "All")
       }
 
       // HTTP codes
@@ -268,15 +277,6 @@ fun ResponseForm(id: UUID, path: String, editResponse: SentResponse?) {
         Button(onClick  = { sendMockResponse(id = id, url = editResponse?.url, code = entry.key, body = body) }, shape = CircleShape) {
           Text(modifier = M.padding(horizontal = 8.dp), text = "${entry.key}")
         }
-      }
-
-      //All responses
-      Button(
-        modifier = M.padding(end = 16.dp),
-        onClick  = { codesExpanded = !codesExpanded },
-        shape    = CircleShape
-      ) {
-        Text(modifier = M.padding(horizontal = 16.dp), text = "All")
       }
 
       DropdownMenu(
