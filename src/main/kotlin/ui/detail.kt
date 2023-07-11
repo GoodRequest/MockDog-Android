@@ -30,7 +30,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 
-val prettyGson: Gson = GsonBuilder().setPrettyPrinting().create()
+val prettyGson: Gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
 var showSearch       by mutableStateOf(false)
 @Composable
 fun Detail(id : UUID) {
@@ -359,7 +359,7 @@ fun ResponseForm(body: ResponseType, setBody: (ResponseType) -> Unit, requestPat
     // TODO add search
 
     ContextMenuDataProvider(items = { menuItems }) {
-      OutlinedTextField(
+      EditableTextWithSearch(
         modifier      = M.fillMaxWidth().padding(bottom = 16.dp),
         label         = { Text("JSON mock", style = T.caption) },
         colors        = TextFieldDefaults.outlinedTextFieldColors(backgroundColor = C.surface),

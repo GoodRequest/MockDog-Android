@@ -12,7 +12,7 @@ import java.util.*
 
 // TODO tento file si zasluzi lasku
 
-private val gson: Gson = GsonBuilder().create()
+private val gson: Gson = GsonBuilder().disableHtmlEscaping().create()
 
 private val folder = "${System.getProperty("user.home")}${File.separatorChar}MockdogMocks".also { File(it).mkdirs() }
 private val mockFiles = mutableStateOf(emptySet<String>())
