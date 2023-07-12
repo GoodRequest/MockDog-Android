@@ -101,7 +101,7 @@ fun HighLightedTextWithScroll(
     }
   }
 
-  Column(modifier = M.fillMaxWidth().padding(horizontal = 16.dp).heightIn(max = columnHeight)) {
+  Column(modifier = M.fillMaxWidth().padding(horizontal = 16.dp).then(if (showSearch) M.heightIn(max = columnHeight) else M)) {
     if (showSearch) {
       searchView(
         search         = search,
@@ -136,12 +136,117 @@ fun HighLightedTextWithScroll(
 
 @OptIn(ExperimentalFoundationApi::class, FlowPreview::class)
 @Composable
+fun EditableTextWithSearch(
+  value        : String,
+  onValueChange: (String) -> Unit,
+  modifier     : Modifier = Modifier,
+  label        : @Composable (() -> Unit)?,
+  colors       : TextFieldColors = TextFieldDefaults.outlinedTextFieldColors()
+) {
+  if (showSearch) {
+    val (search, setSearch) = remember(showSearch) { mutableStateOf("") }
+    val bringer = remember { BringIntoViewRequester() }
+
+    val textToHighlight by MutableStateFlow(search).debounce(150).distinctUntilChanged().collectAsState("")
+
+    val highlightStartIndexes by remember(textToHighlight, value) {
+      derivedStateOf {
+        getIndexesToHighlight(inputText = AnnotatedString(value), textToHighlight = textToHighlight)
+      }
+    }
+
+    var textFieldValue by remember { mutableStateOf(TextFieldValue(AnnotatedString(value))) }
+
+    LaunchedEffect(value, textToHighlight) {
+      val highlightText = buildAnnotatedString {
+        append(value)
+        highlightStartIndexes.map {
+          addStyle(
+            style = SpanStyle(background = Color.Yellow),
+            start = it,
+            end = it + textToHighlight.length
+          )
+        }
+      }
+
+      textFieldValue = textFieldValue.copy(annotatedString = highlightText)
+    }
+
+    val (selected, setSelected) = remember(highlightStartIndexes) { mutableStateOf(0) }
+
+    val columnHeight by remember {
+      derivedStateOf {
+        (windowState.size.height.value * 0.70).dp
+      }
+    }
+
+    Column(modifier = M.fillMaxWidth().padding(horizontal = 16.dp).heightIn(max = columnHeight)) {
+      if (showSearch) {
+        searchView(
+          search = search,
+          setSearch = setSearch,
+          resultListSize = highlightStartIndexes.size,
+          selected = selected,
+          setSelected = setSelected
+        )
+
+        LaunchedEffect(selected, textToHighlight) {
+          if (highlightStartIndexes.isNotEmpty())
+            textFieldValue = textFieldValue.copy(
+              selection = TextRange(
+                highlightStartIndexes.elementAt(selected),
+                highlightStartIndexes.elementAt(selected) + textToHighlight.length
+              )
+            )
+        }
+      }
+
+      OutlinedTextField(
+        modifier = modifier.bringIntoViewRequester(bringer),
+        label = label,
+        colors = colors,
+        value = textFieldValue,
+        onValueChange = {
+          val highlightText = buildAnnotatedString {
+            append(it.text)
+            highlightStartIndexes.map {
+              addStyle(
+                style = SpanStyle(background = Color.Yellow),
+                start = it,
+                end = it + textToHighlight.length
+              )
+            }
+          }
+
+          onValueChange(it.text)
+          textFieldValue = it.copy(annotatedString = highlightText)
+        })
+    }
+
+    LaunchedEffect(textToHighlight, selected) {
+      if (textToHighlight.isNotBlank()) {
+        delay(10)
+        bringer.bringIntoView()
+      }
+    }
+  } else {
+    OutlinedTextField(
+      modifier      = modifier,
+      label         = label,
+      colors        = colors,
+      value         = value,
+      onValueChange = onValueChange)
+  }
+}
+
+@OptIn(ExperimentalFoundationApi::class, FlowPreview::class)
+@Composable
 fun MocDogJsonParser(
   element    : JsonElement,
   showSearch : Boolean
 ) {
-  val collapsed                             = remember { mutableStateListOf<String>() }
-  val dialogSize                            by remember {
+  val collapsed  = remember { mutableStateListOf<String>() }
+  val dialogSize by remember {
     derivedStateOf {
       DpSize(width = (windowState.size.width.value * 0.9).dp, height = (windowState.size.height.value * 0.9).dp)
     }
@@ -429,14 +534,23 @@ fun MocDogJsonParser(
       }
     }
 
-    Column(M.verticalScroll(rememberScrollState())) {
-      if (jsonArrayDialog == null) {
-        SelectionContainer {
-          JsonTree(element, null, "", collapsed)
+    val scrollState = rememberScrollState()
+
+    Box {
+      Column(M.verticalScroll(scrollState)) {
+        if (jsonArrayDialog == null) {
+          SelectionContainer {
+            JsonTree(element, null, "", collapsed)
+          }
+        } else {
+          EndText("Showing full list in another window in progress....")
         }
-      } else {
-        EndText("Showing full list in another window in progress....")
       }
+
+      VerticalScrollbar(
+        adapter  = rememberScrollbarAdapter(scrollState),
+        modifier = M.align(Alignment.CenterEnd).fillMaxHeight()
+      )
     }
   }
 }
