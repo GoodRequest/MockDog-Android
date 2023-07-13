@@ -231,8 +231,7 @@ private fun DetailResponse(
 
 @Composable
 fun ResponseForm(id: UUID, path: String, editResponse: SentResponse?) {
-  val codesExpanded   = mutable(false)
-  val codes           = derivedStateOf { if (codesExpanded.value) allHttpCodes else httpCodes }
+  var codesExpanded by mutable(false)
 
   val parsed = try { JsonParser.parseString(editResponse?.body ?: "{}") } catch (e: Exception) {
     e.printStackTrace()
@@ -253,22 +252,46 @@ fun ResponseForm(id: UUID, path: String, editResponse: SentResponse?) {
       onValueChange = { setBody(it) })
 
     // Response codes
-    ContextMenuArea(items = { listOf(ContextMenuItem(if (codesExpanded.value) "Collapse" else "Expand") { codesExpanded.value = codesExpanded.value.not() }) }) {
-      Row(modifier = M.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(modifier = M.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 
-        //Real response
-        Button(
-          modifier = M.padding(end = 16.dp),
-          onClick  = { sendRealResponse(id) },
-          shape    = CircleShape
-        ) {
-          Text(modifier = M.padding(horizontal = 16.dp), text = "Real")
+      //Real response
+      Button(
+        modifier = M.padding(end = 8.dp),
+        onClick  = { sendRealResponse(id) },
+        shape    = CircleShape
+      ) {
+        Text(modifier = M.padding(horizontal = 16.dp), text = "Real")
+      }
+
+      //All responses
+      Button(
+        modifier = M.padding(end = 8.dp),
+        onClick  = { codesExpanded = !codesExpanded },
+        shape    = CircleShape
+      ) {
+        Text(modifier = M.padding(horizontal = 16.dp), text = "All")
+      }
+
+      // HTTP codes
+      httpCodes.forEach { entry ->
+        Button(onClick  = { sendMockResponse(id = id, url = editResponse?.url, code = entry.key, body = body) }, shape = CircleShape) {
+          Text(modifier = M.padding(horizontal = 8.dp), text = "${entry.key}")
         }
+      }
 
-        // HTTP codes
-        codes.value.forEach { entry ->
-          Button(onClick  = { sendMockResponse(id = id, url = editResponse?.url, code = entry.key, body = body) }, shape = CircleShape) {
-            Text(modifier = M.padding(horizontal = 8.dp), text = if (codesExpanded.value) "${entry.key} - ${entry.value}" else "${entry.key}")
+      DropdownMenu(
+        modifier         = M.fillMaxHeight(0.4f),
+        expanded         = codesExpanded,
+        onDismissRequest = { codesExpanded = false }
+      ) {
+        allHttpCodes.forEach { entry ->
+          DropdownMenuItem(
+            onClick = {
+              sendMockResponse(id = id, url = editResponse?.url, code = entry.key, body = body)
+              codesExpanded = false
+            }
+          ) {
+            Text(text = "${entry.key} - ${entry.value}")
           }
         }
       }
