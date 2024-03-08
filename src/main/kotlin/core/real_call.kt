@@ -39,15 +39,15 @@ fun sendRealRequest(record: Request): SentResponse {
   val realResponse = measureTimedValue { runCatching(call::execute) }
 
   return realResponse.value.fold(
-    onSuccess = {
+    onSuccess = { response ->
       SentResponse(
         url      = url.toString(),
-        status   = it.code,
+        status   = response.code,
         duration = realResponse.duration.inWholeMilliseconds,
-        headers  = Headers.Builder().apply { it.headers.filter { it.first != "content-encoding" }.forEach { add(it.first, it.second) } }.build(),
+        headers  = Headers.Builder().apply { response.headers.filter { it.first.lowercase() != "content-encoding" }.forEach { add(it.first, it.second) } }.build(),
         body     = try {
-          it.body!!.source().run {
-            if(it.headers["content-encoding"]?.contains("gzip") == true)
+          response.body!!.source().run {
+            if(response.headers["content-encoding"]?.contains("gzip") == true)
               gzip()
             else
               this
